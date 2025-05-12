@@ -1,10 +1,10 @@
 // Define the orwel interface for export
 interface Orwel {
   init: (opts: Config) => void;
-  identify: (traits: Record<string, any>) => void;
-  track: (code: string, properties?: Record<string, any>) => void;
-  log: (type: string, data?: Record<string, any>) => void;
-  flush: () => Promise<void>;
+  identify: (traits: Record<string, any>) => { success: boolean; visitorId: string };
+  track: (code: string, properties?: Record<string, any>) => { success: boolean; eventId: string };
+  log: (type: string, data?: Record<string, any>) => { success: boolean; logId: string };
+  flush: () => Promise<{ success: boolean; count: number }>;
 }
 
 interface Config {
@@ -43,6 +43,7 @@ function createBrowserImplementation(): Orwel {
     type: string;
     data: any;
     timestamp: number;
+    logId?: string;
   }
 
   // Generate a UUID v4
@@ -77,6 +78,11 @@ function createBrowserImplementation(): Orwel {
     try {
       const saved = localStorage.getItem(VISITOR_KEY);
       if (saved) visitor = JSON.parse(saved);
+
+      if (!visitor.id) {
+        visitor.id = generateUUID();
+        saveVisitor();
+      }
     } catch (_) {}
   };
 
@@ -185,33 +191,45 @@ function createBrowserImplementation(): Orwel {
       saveVisitor();
       queue.push({ type: 'identify', traits });
       saveQueue();
+      return { success: true, visitorId: visitor.id || '' };
     },
     track: (code: string, properties: Record<string, any> = {}) => {
-      queue.push({ type: 'track', code, properties });
+      const eventId = generateUUID();
+      queue.push({ type: 'track', code, properties, eventId });
       saveQueue();
+      return { success: true, eventId };
     },
     log: (type: string, data: Record<string, any> = {}) => {
+      const logId = generateUUID();
       logBuffer.push({
         type,
         data,
         timestamp: Date.now(),
+        logId
       });
       saveLog();
+      return { success: true, logId };
     },
-    flush,
+    flush: async () => {
+      const queueLength = queue.length + logBuffer.length;
+      await flush();
+      return { success: true, count: queueLength };
+    },
   };
 }
 
 // Create a server implementation (no-op)
 function createServerImplementation(): Orwel {
-  const noop = () => {};
-  const noopAsync = () => Promise.resolve();
+  const noopId = () => ({ success: true, visitorId: '' });
+  const noopTrack = () => ({ success: true, eventId: '' });
+  const noopLog = () => ({ success: true, logId: '' });
+  const noopAsync = () => Promise.resolve({ success: true, count: 0 });
   
   return {
-    init: noop,
-    identify: noop,
-    track: noop,
-    log: noop,
+    init: () => {},
+    identify: noopId,
+    track: noopTrack,
+    log: noopLog,
     flush: noopAsync,
   };
 }
