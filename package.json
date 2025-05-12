@@ -1,8 +1,15 @@
 {
   "name": "orwel",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Lightweight JavaScript SDK for sending events to Orwel's real-time monitoring API.",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "type": "module",
   "scripts": {
     "build": "tsc",

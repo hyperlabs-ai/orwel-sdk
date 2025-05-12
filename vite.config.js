@@ -1,7 +1,7 @@
 export default {
   build: {
     lib: {
-      entry: 'src/orwel.js',
+      entry: 'src/index.ts',
       name: 'orwel',
       fileName: () => `orwel.js`,
       formats: ['iife']
