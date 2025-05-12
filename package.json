@@ -1,0 +1,32 @@
+{
+  "name": "orwel",
+  "version": "1.0.1",
+  "description": "Lightweight JavaScript SDK for sending events to Orwel's real-time monitoring API.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "orwel",
+    "sdk",
+    "analytics",
+    "event-tracking",
+    "marketing",
+    "monitoring"
+  ],
+  "author": "orwel.io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hyperlabs-ai/orwel-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hyperlabs-ai/orwel-sdk/issues"
+  },
+  "homepage": "https://github.com/hyperlabs-ai/orwel-sdk#readme",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
