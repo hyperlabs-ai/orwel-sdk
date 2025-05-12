@@ -2,17 +2,19 @@
   "name": "orwel",
   "version": "1.0.5",
   "description": "Lightweight JavaScript SDK for sending events to Orwel's real-time monitoring API.",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
+  "main": "./dist/orwel.umd.js",
+  "module": "./dist/orwel.es.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "import": "./dist/orwel.es.js",
+      "require": "./dist/orwel.umd.js"
     }
   },
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "dev": "vite",
+    "build": "vite build && tsc --emitDeclarationOnly",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -34,6 +36,8 @@
   },
   "homepage": "https://github.com/hyperlabs-ai/orwel-sdk#readme",
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "@types/node": "^18.16.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.0.0"
   }
 }
