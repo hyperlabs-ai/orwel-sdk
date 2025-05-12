@@ -20,7 +20,6 @@ export interface Orwel {
 }
 export interface Config {
     apiKey: string;
-    workspace?: string;
     autoMonitor?: boolean;
     [key: string]: any;
 }

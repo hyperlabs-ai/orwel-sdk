@@ -73,7 +73,6 @@ export function createBrowserImplementation(): Orwel {
     try {
       const payload = {
         ...event,
-        workspace: config.workspace || '',
         visitor,
         timestamp: Date.now(),
       };
@@ -102,7 +101,6 @@ export function createBrowserImplementation(): Orwel {
     try {
       const payload = {
         ...logBatch,
-        workspace: config.workspace || '',
         visitor,
         timestamp: Date.now(),
       };

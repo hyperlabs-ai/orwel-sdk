@@ -37,7 +37,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
         new PerformanceObserver((n) => {
           const t = n.getEntries();
           for (const r of t)
-            r.entryType === "navigation" && e.track("page_performance", {
+            r.entryType === "navigation" && e.log("page_performance", {
               type: "navigation",
               data: w(r)
             });
@@ -50,7 +50,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
           const t = n.getEntries(), r = [];
           for (const c of t)
             c.entryType === "resource" && r.length < 10 && r.push(w(c));
-          r.length > 0 && e.track("resource_performance", {
+          r.length > 0 && e.log("resource_performance", {
             type: "resources",
             count: r.length,
             data: r
@@ -62,7 +62,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
 }, _ = (e) => {
   const o = window.performance.getEntriesByType && window.performance.getEntriesByType("navigation")[0];
   if (o)
-    e.track("page_performance", {
+    e.log("page_performance", {
       type: "page_load",
       data: w(o)
     });
@@ -76,7 +76,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
         domContentLoaded: t.domContentLoadedEventEnd - t.navigationStart,
         domInteractive: t.domInteractive - t.navigationStart
       };
-      e.track("page_performance", {
+      e.log("page_performance", {
         type: "page_load",
         data: r
       });
@@ -87,7 +87,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
     const t = {};
     for (const r of n)
       r.name === "first-paint" ? t.firstPaint = r.startTime : r.name === "first-contentful-paint" && (t.firstContentfulPaint = r.startTime);
-    e.track("paint_performance", {
+    e.log("paint_performance", {
       type: "paint_metrics",
       data: t
     });
@@ -95,7 +95,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
 }, O = (e) => {
   window.addEventListener("error", (o) => {
     var n, t;
-    e.track("js_error", {
+    e.log("js_error", {
       message: o.message,
       filename: o.filename,
       lineno: o.lineno,
@@ -105,7 +105,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
   }), window.addEventListener("unhandledrejection", (o) => {
     var t;
     const n = o.reason;
-    e.track("promise_error", {
+    e.log("promise_error", {
       message: (n == null ? void 0 : n.message) || String(n),
       stack: ((t = n == null ? void 0 : n.stack) == null ? void 0 : t.substring(0, 2e3)) || "Not available"
     });
@@ -129,7 +129,7 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
 }, D = (e) => {
   if (!window.XMLHttpRequest) return;
   const o = XMLHttpRequest.prototype.open, n = XMLHttpRequest.prototype.send;
-  if (XMLHttpRequest.prototype.open = function(t, r, c, i, d) {
+  if (XMLHttpRequest.prototype.open = function(t, r, c, s, l) {
     return this._orwelMethod = t, this._orwelUrl = r, this._orwelStartTime = Date.now(), o.apply(this, arguments);
   }, XMLHttpRequest.prototype.send = function(...t) {
     return this.addEventListener("load", function() {
@@ -152,24 +152,24 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
   }, window.fetch) {
     const t = window.fetch;
     window.fetch = function(r, c) {
-      const i = Date.now(), d = (c == null ? void 0 : c.method) || "GET", f = typeof r == "string" ? r : r instanceof URL ? r.toString() : "url" in r ? String(r.url) : "";
-      return t.apply(window, [r, c]).then((l) => {
-        const u = Date.now() - i;
+      const s = Date.now(), l = (c == null ? void 0 : c.method) || "GET", f = typeof r == "string" ? r : r instanceof URL ? r.toString() : "url" in r ? String(r.url) : "";
+      return t.apply(window, [r, c]).then((d) => {
+        const u = Date.now() - s;
         return e.log("network_request", {
           url: f,
-          method: d,
-          status: l.status,
+          method: l,
+          status: d.status,
           duration: u,
-          success: l.ok
-        }), l;
-      }).catch((l) => {
-        const u = Date.now() - i;
+          success: d.ok
+        }), d;
+      }).catch((d) => {
+        const u = Date.now() - s;
         throw e.log("network_error", {
           url: f,
-          method: d,
+          method: l,
           duration: u,
-          message: l.message
-        }), l;
+          message: d.message
+        }), d;
       });
     };
   }
@@ -195,24 +195,24 @@ const g = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (e) => {
   }, ...o };
   t.performance && L(e), t.errors && O(e), t.console && I(e), t.network && D(e), t.memory && M(e);
 };
-function k() {
+function x() {
   const e = "__orwel_queue__", o = "__orwel_log__", n = "__orwel_visitor__";
   let t = {}, r = {}, c = !1;
-  const i = [], d = [], f = () => {
+  const s = [], l = [], f = () => {
     try {
-      const s = localStorage.getItem(e);
-      s && i.push(...JSON.parse(s));
+      const i = localStorage.getItem(e);
+      i && s.push(...JSON.parse(i));
     } catch {
     }
-  }, l = () => {
+  }, d = () => {
     try {
-      localStorage.setItem(e, JSON.stringify(i));
+      localStorage.setItem(e, JSON.stringify(s));
     } catch {
     }
   }, u = () => {
     try {
-      const s = localStorage.getItem(n);
-      s && (r = JSON.parse(s)), r.id || (r.id = g(), y());
+      const i = localStorage.getItem(n);
+      i && (r = JSON.parse(i)), r.id || (r.id = g(), y());
     } catch {
     }
   }, y = () => {
@@ -220,28 +220,27 @@ function k() {
       localStorage.setItem(n, JSON.stringify(r));
     } catch {
     }
-  }, x = () => {
+  }, T = () => {
     try {
-      const s = localStorage.getItem(o);
-      s && d.push(...JSON.parse(s));
+      const i = localStorage.getItem(o);
+      i && l.push(...JSON.parse(i));
     } catch {
     }
   }, v = () => {
     try {
-      localStorage.setItem(o, JSON.stringify(d));
+      localStorage.setItem(o, JSON.stringify(l));
     } catch {
     }
   }, m = async () => {
-    for (; i.length > 0; ) {
-      const s = i.shift();
-      s && await T(s);
+    for (; s.length > 0; ) {
+      const i = s.shift();
+      i && await k(i);
     }
-    return l(), await b(), Promise.resolve();
-  }, T = async (s) => {
+    return d(), await b(), Promise.resolve();
+  }, k = async (i) => {
     try {
       const p = {
-        ...s,
-        workspace: t.workspace || "",
+        ...i,
         visitor: r,
         timestamp: Date.now()
       };
@@ -255,18 +254,17 @@ function k() {
         keepalive: !0
       });
     } catch {
-      i.push(s), l();
+      s.push(i), d();
     }
   }, b = async () => {
-    if (d.length === 0) return;
-    const s = {
+    if (l.length === 0) return;
+    const i = {
       type: "log_batch",
-      logs: [...d]
+      logs: [...l]
     };
     try {
       const p = {
-        ...s,
-        workspace: t.workspace || "",
+        ...i,
         visitor: r,
         timestamp: Date.now()
       };
@@ -278,44 +276,44 @@ function k() {
         },
         body: JSON.stringify(p),
         keepalive: !0
-      }), d.length = 0, v();
+      }), l.length = 0, v();
     } catch {
       console.warn("[Orwel SDK] Failed to flush logs");
     }
   };
   return {
-    init: (s) => {
-      t = s, f(), x(), u(), window.addEventListener("beforeunload", m), window.addEventListener("visibilitychange", () => {
+    init: (i) => {
+      t = i, f(), T(), u(), window.addEventListener("beforeunload", m), window.addEventListener("visibilitychange", () => {
         document.visibilityState === "hidden" && m();
-      }), s.autoMonitor && S.monitor();
+      }), i.autoMonitor && S.monitor();
     },
-    identify: (s = {}) => {
-      const a = { ...E(), ...s };
-      return !r.id && !a.id ? a.id = g() : r.id && !a.id && (a.id = r.id), r = { ...r, ...a }, y(), i.push({ type: "identify", traits: a }), l(), { success: !0, visitorId: r.id || "" };
+    identify: (i = {}) => {
+      const a = { ...E(), ...i };
+      return !r.id && !a.id ? a.id = g() : r.id && !a.id && (a.id = r.id), r = { ...r, ...a }, y(), s.push({ type: "identify", traits: a }), d(), { success: !0, visitorId: r.id || "" };
     },
-    track: (s, p = {}) => {
+    track: (i, p = {}) => {
       const a = g();
-      return i.push({ type: "track", code: s, properties: p, eventId: a }), l(), { success: !0, eventId: a };
+      return s.push({ type: "track", code: i, properties: p, eventId: a }), d(), { success: !0, eventId: a };
     },
-    log: (s, p = {}) => {
+    log: (i, p = {}) => {
       const a = g();
-      return d.push({
-        type: s,
+      return l.push({
+        type: i,
         data: p,
         timestamp: Date.now(),
         logId: a
       }), v(), { success: !0, logId: a };
     },
-    monitor: (s = {}) => {
-      c || (P(S, s), c = !0);
+    monitor: (i = {}) => {
+      c || (P(S, i), c = !0);
     },
     flush: async () => {
-      const s = i.length + d.length;
-      return await m(), { success: !0, count: s };
+      const i = s.length + l.length;
+      return await m(), { success: !0, count: i };
     }
   };
 }
-const S = k();
+const S = x();
 function H() {
   return {
     init: () => {
@@ -328,7 +326,7 @@ function H() {
     flush: () => Promise.resolve({ success: !0, count: 0 })
   };
 }
-const N = h ? k() : H();
+const N = h ? x() : H();
 h && (window.orwel = N);
 export {
   N as orwel
