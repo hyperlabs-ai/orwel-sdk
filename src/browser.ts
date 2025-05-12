@@ -94,17 +94,13 @@ export function createBrowserImplementation(): Orwel {
 
   const flushLogs = async () => {
     if (logBuffer.length === 0) return;
-    const logBatch = {
+    const payload = {
       type: 'log_batch',
+      visitor,
       logs: [...logBuffer],
+      timestamp: new Date().toISOString()
     };
     try {
-      const payload = {
-        ...logBatch,
-        visitor,
-        timestamp: Date.now(),
-      };
-
       await fetch('https://api.orwel.io/ingest', {
         method: 'POST',
         headers: {
@@ -166,7 +162,7 @@ export function createBrowserImplementation(): Orwel {
       logBuffer.push({
         type,
         data,
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
         logId
       });
       saveLog();

@@ -36,7 +36,7 @@ export interface OrwelEvent {
 export interface LogEntry {
   type: string;
   data: any;
-  timestamp: number;
+  timestamp: string;
   logId?: string;
 }
 
