@@ -1,4 +1,10 @@
-export {};
+interface Orwel {
+    init: (opts: Config) => void;
+    identify: (traits: Record<string, any>) => void;
+    track: (code: string, properties?: Record<string, any>) => void;
+    log: (type: string, data?: Record<string, any>) => void;
+    flush: () => Promise<void>;
+}
 interface Config {
     apiKey: string;
     workspace?: string;
@@ -6,12 +12,8 @@ interface Config {
 }
 declare global {
     interface Window {
-        orwel: {
-            init: (opts: Config) => void;
-            identify: (traits: Record<string, any>) => void;
-            track: (code: string, properties?: Record<string, any>) => void;
-            log: (type: string, data?: Record<string, any>) => void;
-            flush: () => Promise<void>;
-        };
+        orwel: Orwel;
     }
 }
+declare const orwel: Orwel;
+export { orwel };

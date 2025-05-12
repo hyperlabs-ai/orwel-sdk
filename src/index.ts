@@ -1,44 +1,48 @@
-// Make this file a module by adding an export
-export {}
+// Define the orwel interface for export
+interface Orwel {
+  init: (opts: Config) => void;
+  identify: (traits: Record<string, any>) => void;
+  track: (code: string, properties?: Record<string, any>) => void;
+  log: (type: string, data?: Record<string, any>) => void;
+  flush: () => Promise<void>;
+}
 
 interface Config {
-  apiKey: string
-  workspace?: string
-  [key: string]: any
+  apiKey: string;
+  workspace?: string;
+  [key: string]: any;
 }
 
 // Extend Window interface to include orwel object
 declare global {
   interface Window {
-    orwel: {
-      init: (opts: Config) => void
-      identify: (traits: Record<string, any>) => void
-      track: (code: string, properties?: Record<string, any>) => void
-      log: (type: string, data?: Record<string, any>) => void
-      flush: () => Promise<void>
-    }
+    orwel: Orwel;
   }
 }
 
-(function () {
-  const QUEUE_KEY = '__orwel_queue__'
-  const LOG_KEY = '__orwel_log__'
-  const VISITOR_KEY = '__orwel_visitor__'
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+// Create a browser implementation
+function createBrowserImplementation(): Orwel {
+  const QUEUE_KEY = '__orwel_queue__';
+  const LOG_KEY = '__orwel_log__';
+  const VISITOR_KEY = '__orwel_visitor__';
 
   interface Visitor {
-    id?: string
-    [key: string]: any
+    id?: string;
+    [key: string]: any;
   }
 
   interface OrwelEvent {
-    type: string
-    [key: string]: any
+    type: string;
+    [key: string]: any;
   }
 
   interface LogEntry {
-    type: string
-    data: any
-    timestamp: number
+    type: string;
+    data: any;
+    timestamp: number;
   }
 
   // Generate a UUID v4
@@ -50,59 +54,60 @@ declare global {
     });
   };
 
-  let config: Config = {} as Config
-  let visitor: Visitor = {}
+  let config: Config = {} as Config;
+  let visitor: Visitor = {};
 
-  const queue: OrwelEvent[] = []
-  const logBuffer: LogEntry[] = []
+  const queue: OrwelEvent[] = [];
+  const logBuffer: LogEntry[] = [];
 
   const loadQueue = () => {
     try {
-      const saved = localStorage.getItem(QUEUE_KEY)
-      if (saved) queue.push(...JSON.parse(saved))
+      const saved = localStorage.getItem(QUEUE_KEY);
+      if (saved) queue.push(...JSON.parse(saved));
     } catch (_) {}
-  }
+  };
 
   const saveQueue = () => {
     try {
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue))
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     } catch (_) {}
-  }
+  };
 
   const loadVisitor = () => {
     try {
-      const saved = localStorage.getItem(VISITOR_KEY)
-      if (saved) visitor = JSON.parse(saved)
+      const saved = localStorage.getItem(VISITOR_KEY);
+      if (saved) visitor = JSON.parse(saved);
     } catch (_) {}
-  }
+  };
 
   const saveVisitor = () => {
     try {
-      localStorage.setItem(VISITOR_KEY, JSON.stringify(visitor))
+      localStorage.setItem(VISITOR_KEY, JSON.stringify(visitor));
     } catch (_) {}
-  }
+  };
 
   const loadLog = () => {
     try {
-      const saved = localStorage.getItem(LOG_KEY)
-      if (saved) logBuffer.push(...JSON.parse(saved))
+      const saved = localStorage.getItem(LOG_KEY);
+      if (saved) logBuffer.push(...JSON.parse(saved));
     } catch (_) {}
-  }
+  };
 
   const saveLog = () => {
     try {
-      localStorage.setItem(LOG_KEY, JSON.stringify(logBuffer))
+      localStorage.setItem(LOG_KEY, JSON.stringify(logBuffer));
     } catch (_) {}
-  }
+  };
 
   const flush = async () => {
     while (queue.length > 0) {
-      const evt = queue.shift()
-      if (evt) await send(evt)
+      const evt = queue.shift();
+      if (evt) await send(evt);
     }
-    saveQueue()
-    await flushLogs()
-  }
+    saveQueue();
+    await flushLogs();
+    return Promise.resolve();
+  };
 
   const send = async (event: OrwelEvent) => {
     try {
@@ -110,9 +115,9 @@ declare global {
         ...event,
         workspace: config.workspace || '',
         visitor,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
-      
+
       await fetch('https://api.orwel.io/ingest', {
         method: 'POST',
         headers: {
@@ -120,28 +125,28 @@ declare global {
           'X-Orwel-Key': config.apiKey,
         },
         body: JSON.stringify(payload),
-        keepalive: true
+        keepalive: true,
       });
     } catch (err) {
       queue.push(event);
       saveQueue();
     }
-  }
+  };
 
   const flushLogs = async () => {
     if (logBuffer.length === 0) return;
     const logBatch = {
       type: 'log_batch',
-      logs: [...logBuffer]
+      logs: [...logBuffer],
     };
     try {
       const payload = {
         ...logBatch,
         workspace: config.workspace || '',
         visitor,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
-      
+
       await fetch('https://api.orwel.io/ingest', {
         method: 'POST',
         headers: {
@@ -149,26 +154,25 @@ declare global {
           'X-Orwel-Key': config.apiKey,
         },
         body: JSON.stringify(payload),
-        keepalive: true
+        keepalive: true,
       });
       logBuffer.length = 0;
       saveLog();
     } catch (err) {
       console.warn('[Orwel SDK] Failed to flush logs');
     }
-  }
+  };
 
-  // Define the orwel object on the window
-  (window as any).orwel = {
+  return {
     init: (opts: Config) => {
-      config = opts
-      loadQueue()
-      loadLog()
-      loadVisitor()
-      window.addEventListener('beforeunload', flush)
+      config = opts;
+      loadQueue();
+      loadLog();
+      loadVisitor();
+      window.addEventListener('beforeunload', flush);
       window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flush()
-      })
+        if (document.visibilityState === 'hidden') flush();
+      });
     },
     identify: (traits: Record<string, any>) => {
       // Generate UUID if visitor doesn't have an ID
@@ -177,23 +181,47 @@ declare global {
       } else if (visitor.id && !traits.id) {
         traits.id = visitor.id;
       }
-      visitor = { ...visitor, ...traits }
-      saveVisitor()
-      queue.push({ type: 'identify', traits })
-      saveQueue()
+      visitor = { ...visitor, ...traits };
+      saveVisitor();
+      queue.push({ type: 'identify', traits });
+      saveQueue();
     },
     track: (code: string, properties: Record<string, any> = {}) => {
-      queue.push({ type: 'track', code, properties })
-      saveQueue()
+      queue.push({ type: 'track', code, properties });
+      saveQueue();
     },
     log: (type: string, data: Record<string, any> = {}) => {
       logBuffer.push({
         type,
         data,
-        timestamp: Date.now()
-      })
-      saveLog()
+        timestamp: Date.now(),
+      });
+      saveLog();
     },
-    flush
-  }
-})()
+    flush,
+  };
+}
+
+// Create a server implementation (no-op)
+function createServerImplementation(): Orwel {
+  const noop = () => {};
+  const noopAsync = () => Promise.resolve();
+  
+  return {
+    init: noop,
+    identify: noop,
+    track: noop,
+    log: noop,
+    flush: noopAsync,
+  };
+}
+
+// Create and export the orwel instance based on environment
+const orwel: Orwel = isBrowser ? createBrowserImplementation() : createServerImplementation();
+
+// Attach to window in browser environment
+if (isBrowser) {
+  (window as any).orwel = orwel;
+}
+
+export { orwel };

@@ -1,4 +1,7 @@
-(function () {
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+// Create a browser implementation
+function createBrowserImplementation() {
     const QUEUE_KEY = '__orwel_queue__';
     const LOG_KEY = '__orwel_log__';
     const VISITOR_KEY = '__orwel_visitor__';
@@ -64,6 +67,7 @@
         }
         saveQueue();
         await flushLogs();
+        return Promise.resolve();
     };
     const send = async (event) => {
         try {
@@ -71,7 +75,7 @@
                 ...event,
                 workspace: config.workspace || '',
                 visitor,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
             await fetch('https://api.orwel.io/ingest', {
                 method: 'POST',
@@ -80,7 +84,7 @@
                     'X-Orwel-Key': config.apiKey,
                 },
                 body: JSON.stringify(payload),
-                keepalive: true
+                keepalive: true,
             });
         }
         catch (err) {
@@ -93,14 +97,14 @@
             return;
         const logBatch = {
             type: 'log_batch',
-            logs: [...logBuffer]
+            logs: [...logBuffer],
         };
         try {
             const payload = {
                 ...logBatch,
                 workspace: config.workspace || '',
                 visitor,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
             await fetch('https://api.orwel.io/ingest', {
                 method: 'POST',
@@ -109,7 +113,7 @@
                     'X-Orwel-Key': config.apiKey,
                 },
                 body: JSON.stringify(payload),
-                keepalive: true
+                keepalive: true,
             });
             logBuffer.length = 0;
             saveLog();
@@ -118,8 +122,7 @@
             console.warn('[Orwel SDK] Failed to flush logs');
         }
     };
-    // Define the orwel object on the window
-    window.orwel = {
+    return {
         init: (opts) => {
             config = opts;
             loadQueue();
@@ -152,11 +155,29 @@
             logBuffer.push({
                 type,
                 data,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
             saveLog();
         },
-        flush
+        flush,
     };
-})();
-export {};
+}
+// Create a server implementation (no-op)
+function createServerImplementation() {
+    const noop = () => { };
+    const noopAsync = () => Promise.resolve();
+    return {
+        init: noop,
+        identify: noop,
+        track: noop,
+        log: noop,
+        flush: noopAsync,
+    };
+}
+// Create and export the orwel instance based on environment
+const orwel = isBrowser ? createBrowserImplementation() : createServerImplementation();
+// Attach to window in browser environment
+if (isBrowser) {
+    window.orwel = orwel;
+}
+export { orwel };
