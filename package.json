@@ -11,6 +11,9 @@
       "require": "./dist/orwel.umd.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

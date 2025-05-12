@@ -74,7 +74,7 @@ export function createBrowserImplementation(): Orwel {
       const payload = {
         ...event,
         visitor,
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
       };
 
       await fetch('https://api.orwel.io/ingest', {
@@ -149,7 +149,7 @@ export function createBrowserImplementation(): Orwel {
       saveVisitor();
       queue.push({ type: 'identify', traits: mergedTraits });
       saveQueue();
-      return { success: true, visitorId: visitor.id || '' };
+      return { success: true, visitorId: mergedTraits.id || visitor.id || '' };
     },
     track: (code: string, properties: Record<string, any> = {}) => {
       const eventId = generateUUID();
