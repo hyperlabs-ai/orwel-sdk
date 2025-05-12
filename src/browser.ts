@@ -87,6 +87,7 @@ export function createBrowserImplementation(): Orwel {
         keepalive: true,
       });
     } catch (err) {
+      console.warn('[Orwel SDK] Failed to send event', err);
       queue.push(event);
       saveQueue();
     }
@@ -113,7 +114,7 @@ export function createBrowserImplementation(): Orwel {
       logBuffer.length = 0;
       saveLog();
     } catch (err) {
-      console.warn('[Orwel SDK] Failed to flush logs');
+      console.warn('[Orwel SDK] Failed to flush logs', err);
     }
   };
 
