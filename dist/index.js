@@ -36,6 +36,10 @@ function createBrowserImplementation() {
             const saved = localStorage.getItem(VISITOR_KEY);
             if (saved)
                 visitor = JSON.parse(saved);
+            if (!visitor.id) {
+                visitor.id = generateUUID();
+                saveVisitor();
+            }
         }
         catch (_) { }
     };
@@ -146,31 +150,43 @@ function createBrowserImplementation() {
             saveVisitor();
             queue.push({ type: 'identify', traits });
             saveQueue();
+            return { success: true, visitorId: visitor.id || '' };
         },
         track: (code, properties = {}) => {
-            queue.push({ type: 'track', code, properties });
+            const eventId = generateUUID();
+            queue.push({ type: 'track', code, properties, eventId });
             saveQueue();
+            return { success: true, eventId };
         },
         log: (type, data = {}) => {
+            const logId = generateUUID();
             logBuffer.push({
                 type,
                 data,
                 timestamp: Date.now(),
+                logId
             });
             saveLog();
+            return { success: true, logId };
         },
-        flush,
+        flush: async () => {
+            const queueLength = queue.length + logBuffer.length;
+            await flush();
+            return { success: true, count: queueLength };
+        },
     };
 }
 // Create a server implementation (no-op)
 function createServerImplementation() {
-    const noop = () => { };
-    const noopAsync = () => Promise.resolve();
+    const noopId = () => ({ success: true, visitorId: '' });
+    const noopTrack = () => ({ success: true, eventId: '' });
+    const noopLog = () => ({ success: true, logId: '' });
+    const noopAsync = () => Promise.resolve({ success: true, count: 0 });
     return {
-        init: noop,
-        identify: noop,
-        track: noop,
-        log: noop,
+        init: () => { },
+        identify: noopId,
+        track: noopTrack,
+        log: noopLog,
         flush: noopAsync,
     };
 }
