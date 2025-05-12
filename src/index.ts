@@ -7,7 +7,7 @@ interface Config {
   [key: string]: any
 }
 
-// Extend Window interface to include orwel
+// Extend Window interface to include orwel object
 declare global {
   interface Window {
     orwel: {
