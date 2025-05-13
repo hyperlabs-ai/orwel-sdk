@@ -10,8 +10,8 @@ export const startMonitoring = (orwel: Orwel, options: MonitorOptions = {}): voi
     performance: true,
     errors: true,
     console: true,
-    network: true,
-    memory: true
+    network: false,
+    memory: false
   };
   
   const settings = { ...defaultOptions, ...options };
