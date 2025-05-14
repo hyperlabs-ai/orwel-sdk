@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2025-05-15
+
+### Added
+- Added UUID dependency for more robust unique ID generation
+
+### Refactored
+- Complete modularization of the SDK core
+  - Separated visitor management into dedicated module
+  - Created standalone session handling module
+  - Extracted queue management logic into its own module
+  - Isolated API communication in a dedicated client
+  - Implemented centralized storage module for all persistence operations
+- Improved dependency injection pattern for better testability
+- Enhanced circular dependency resolution between modules
+
+### Optimized
+- Better memory usage through improved module isolation
+- Reduced code duplication across components
+- More consistent error handling across modules
+
 ## [1.0.12] - 2025-05-14
 
 ### Fixed

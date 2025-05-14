@@ -1,6 +1,6 @@
 {
   "name": "orwel",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "changelog": "CHANGELOG.md",
   "description": "Lightweight JavaScript SDK for sending events to Orwel's real-time monitoring API.",
   "main": "./dist/orwel.umd.js",
@@ -40,6 +40,7 @@
   },
   "homepage": "https://github.com/hyperlabs-ai/orwel-sdk#readme",
   "dependencies": {
+    "uuid": "^11.1.0",
     "web-vitals": "^3.5.2"
   },
   "devDependencies": {
