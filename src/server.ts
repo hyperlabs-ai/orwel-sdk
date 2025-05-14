@@ -4,14 +4,14 @@ import { Orwel } from './types';
 export function createServerImplementation(): Orwel {
   const noopId = () => ({ success: true, visitorId: '' });
   const noopTrack = () => ({ success: true, eventId: '' });
-  const noopLog = () => ({ success: true, logId: '' });
+  const noopSession = () => ({ success: true, sessionId: '' });
   const noopAsync = () => Promise.resolve({ success: true, count: 0 });
   
   return {
     init: () => {},
     identify: noopId,
     track: noopTrack,
-    log: noopLog,
+    session: noopSession,
     monitor: () => {},
     flush: noopAsync,
   };
