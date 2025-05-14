@@ -1,6 +1,6 @@
 {
   "name": "orwel",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "changelog": "CHANGELOG.md",
   "description": "Lightweight JavaScript SDK for sending events to Orwel's real-time monitoring API.",
   "main": "./dist/orwel.umd.js",

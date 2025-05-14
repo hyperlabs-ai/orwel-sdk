@@ -81,7 +81,7 @@ export function createQueueManager(
             sessionManager.setPendingUpdate(false);
           }
         } else {
-          // Lógica de reintento para eventos fallidos
+          // Requeue failed event if retry count is not exceeded
           if (!evt.__retryCount) evt.__retryCount = 0;
           
           if (evt.__retryCount < 3) {

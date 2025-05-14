@@ -1,5 +1,5 @@
 import { Visitor } from '../types';
-import { generateUUID, collectBrowserInfo, createLogger, sanitizeData } from '../utils';
+import { generateUUID, collectBrowserInfo, createLogger } from '../utils';
 
 /**
  * Creates a visitor manager that handles visitor identification and persistence
@@ -50,14 +50,10 @@ export function createVisitorManager(
   const identify = (traits: Record<string, any> = {}) => {
     logger.info('Identifying visitor', traits);
     
-    // Sanitize incoming traits
-    const sanitizedTraits = sanitizeData(traits);
-    logger.debug('Sanitized visitor traits', sanitizedTraits);
-    
     // Collect browser info and merge with provided traits
     const browserInfo = collectBrowserInfo();
     // Only include browser info that isn't explicitly provided by the user
-    const mergedTraits = { ...browserInfo, ...sanitizedTraits };
+    const mergedTraits = { ...browserInfo, ...traits };
     
     // Generate UUID if visitor doesn't have an ID
     if (!visitor.id && !mergedTraits.id) {

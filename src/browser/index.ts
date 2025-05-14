@@ -1,5 +1,5 @@
 import { Orwel, Config, OrwelEvent } from "../types";
-import { createLogger, generateUUID, sanitizeData } from "../utils";
+import { createLogger, generateUUID } from "../utils";
 import { startMonitoring } from "../monitoring";
 import { createStorage } from "./storage";
 import { createVisitorManager } from "./visitor";
@@ -27,6 +27,20 @@ export function createBrowserImplementation(): Orwel {
     logger
   );
   
+  // Crear el administrador de cola primero
+  const queueManager = createQueueManager(
+    {
+      loadQueue: storage.loadQueue,
+      saveQueue: storage.saveQueue
+    },
+    apiClient,
+    {
+      setPendingUpdate: (isPending: boolean) => {},  // Temporal, será reemplazado
+      flushSessionBuffer: () => {}  // Temporal, será reemplazado
+    },
+    logger
+  );
+
   // Crear managers (con dependencias circulares resueltas mediante inicialización posterior)
   const sessionManager = createSessionManager(
     {
@@ -34,9 +48,10 @@ export function createBrowserImplementation(): Orwel {
       loadSession: storage.loadSession
     },
     {
-      push: () => {}, // Temporal, será reemplazado
-      save: () => {}, // Temporal, será reemplazado
-      findAndUpdateEvent: () => false // Temporal, será reemplazado
+      push: (event: any) => queueManager.addEvent(event as OrwelEvent),
+      save: () => {},  // No es necesario guardar aquí, addEvent ya lo hace
+      findAndUpdateEvent: (type: string, data: any) => 
+        queueManager.findAndUpdateEvent(type, data as OrwelEvent)
     },
     logger
   );
@@ -47,42 +62,17 @@ export function createBrowserImplementation(): Orwel {
       loadVisitor: storage.loadVisitor
     },
     {
-      push: () => {}, // Temporal, será reemplazado
-      save: () => {} // Temporal, será reemplazado
+      push: (event: any) => queueManager.addEvent(event as OrwelEvent),
+      save: () => {}  // No es necesario guardar aquí, addEvent ya lo hace
     },
     logger
   );
 
-  // Crear el administrador de cola (ahora podemos pasarle el sessionManager real)
-  const queueManager = createQueueManager(
-    {
-      loadQueue: storage.loadQueue,
-      saveQueue: storage.saveQueue
-    },
-    apiClient,
-    {
-      setPendingUpdate: (isPending: boolean) => (sessionManager as any).setPendingUpdate(isPending),
-      flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer()
-    },
-    logger
-  );
-
-  // Resolver dependencias circulares actualizando las referencias
-  // Update session queue adapter
-  const sessionQueueAdapter = {
-    push: (event: any) => queueManager.addEvent(event as OrwelEvent),
-    save: () => {},  // No es necesario guardar aquí, addEvent ya lo hace
-    findAndUpdateEvent: (type: string, data: any) => 
-      queueManager.findAndUpdateEvent(type, data as OrwelEvent)
+  // Actualizar las referencias en el queue manager para resolver las dependencias circulares
+  (queueManager as any).sessionManager = {
+    setPendingUpdate: (isPending: boolean) => (sessionManager as any).setPendingUpdate(isPending),
+    flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer()
   };
-  (sessionManager as any).queue = sessionQueueAdapter;
-
-  // Update visitor queue adapter
-  const visitorQueueAdapter = {
-    push: (event: any) => queueManager.addEvent(event as OrwelEvent),
-    save: () => {}  // No es necesario guardar aquí, addEvent ya lo hace
-  };
-  (visitorManager as any).queue = visitorQueueAdapter;
 
   const orwel: Orwel = {
     init: (opts: Config) => {
@@ -130,14 +120,10 @@ export function createBrowserImplementation(): Orwel {
       const eventId = generateUUID();
       logger.info("Tracking event", { code, eventId });
       
-      // Sanitize incoming properties
-      const sanitizedProps = sanitizeData(properties);
-      logger.debug("Sanitized event properties", sanitizedProps);
-      
       queueManager.addEvent({ 
         type: "track", 
         code, 
-        properties: sanitizedProps, 
+        properties, 
         event: { id: eventId, code } 
       });
       

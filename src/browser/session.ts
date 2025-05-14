@@ -106,12 +106,8 @@ export function createSessionManager(
       properties: Object.keys(properties),
     });
 
-    // Sanitize incoming properties
-    const sanitizedProps = sanitizeData(properties);
-    logger.debug("Sanitized session properties", sanitizedProps);
-
     // Añadir propiedades al buffer en lugar de directamente a la sesión
-    sessionBuffer = { ...sessionBuffer, ...sanitizedProps };
+    sessionBuffer = { ...sessionBuffer, ...properties };
 
     // Programar vaciado del buffer
     flushSessionBuffer();

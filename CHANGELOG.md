@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.14] - 2025-05-15
+
+### Fixed
+- Removed data sanitization that was causing issues with event payload format
+- Fixed initialization order of internal modules
+- Restored original event payload structure for better API compatibility
+- Improved dependency resolution between internal components
+- Fixed visitor traits handling to match previous working implementation
+
 ## [1.0.13] - 2025-05-15
 
 ### Added
