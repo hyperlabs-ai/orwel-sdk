@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] - 2025-05-14
+
+### Fixed
+- Fixed track event format to properly structure the event id object
+- Included event code within the event object structure
+- Ensured correct event payload format to prevent 400 Bad Request errors
+
 ## [1.0.11] - 2025-05-14
 
 ### Optimized
@@ -18,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved overload issue caused by multiple session events being sent simultaneously
 - Correctly exported the orwel instance
 - Improved browser memory management
+- Added retry limit for failed network requests to prevent infinite loops
 
 ## [1.0.10] - 2025-05-14
 
