@@ -33,22 +33,36 @@ export const setupPerformanceMonitoring = (orwel: Orwel): void => {
   // Monitor resource timing
   if (PerformanceObserver) {
     try {
+      // Store resources to batch them
+      let resources: any[] = [];
+      let resourceTimeout: any = null;
+      
       const resourceObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        const resources: any[] = [];
         
+        // Add resources to our collection, limiting the number
         for (const entry of entries) {
-          if (entry.entryType === 'resource' && resources.length < 10) {
+          if (entry.entryType === 'resource' && resources.length < 50) {
             resources.push(serializePerformanceEntry(entry));
           }
         }
         
-        if (resources.length > 0) {
-          orwel.session({
-            resources: resources
-          });
+        // Debounce sending resources - wait 1 second between batches
+        if (resourceTimeout) {
+          clearTimeout(resourceTimeout);
         }
+        
+        resourceTimeout = setTimeout(() => {
+          if (resources.length > 0) {
+            orwel.session({
+              resources: resources
+            });
+            resources = []; // Clear after sending
+          }
+          resourceTimeout = null;
+        }, 1000);
       });
+      
       resourceObserver.observe({ entryTypes: ['resource'] });
     } catch (e) {
       // Browser doesn't support this specific observation
@@ -57,30 +71,27 @@ export const setupPerformanceMonitoring = (orwel: Orwel): void => {
 };
 
 const trackPerformanceMetrics = (orwel: Orwel): void => {
+  // Collect all metrics to send in a single update
+  const performanceData: Record<string, any> = {};
+  
   // Get basic navigation timing
   const navEntry = 
     window.performance.getEntriesByType && 
     window.performance.getEntriesByType('navigation')[0];
   
   if (navEntry) {
-    orwel.session({
-      pageLoad: serializePerformanceEntry(navEntry)
-    });
+    performanceData.pageLoad = serializePerformanceEntry(navEntry);
   } else {
     // Fallback for older browsers
     const timing = window.performance.timing;
     if (timing) {
-      const pageLoadData = {
+      performanceData.pageLoad = {
         loadTime: timing.loadEventEnd - timing.navigationStart,
         domReadyTime: timing.domComplete - timing.domLoading,
         ttfb: timing.responseStart - timing.requestStart,
         domContentLoaded: timing.domContentLoadedEventEnd - timing.navigationStart,
         domInteractive: timing.domInteractive - timing.navigationStart
       };
-      
-      orwel.session({
-        pageLoad: pageLoadData
-      });
     }
   }
 
@@ -97,8 +108,11 @@ const trackPerformanceMetrics = (orwel: Orwel): void => {
       }
     }
 
-    orwel.session({
-      paintMetrics: paintData
-    });
+    performanceData.paintMetrics = paintData;
+  }
+  
+  // Send all performance data in one go
+  if (Object.keys(performanceData).length > 0) {
+    orwel.session(performanceData);
   }
 }; 

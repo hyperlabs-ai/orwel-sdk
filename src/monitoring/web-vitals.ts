@@ -30,19 +30,21 @@ export const setupWebVitalsMonitoring = (orwel: Orwel): void => {
   };
 
   // Monitor LCP (Largest Contentful Paint)
-  getLCP(updateSession, { reportAllChanges: true });
+  // reportAllChanges: false to reduce the number of events
+  getLCP(updateSession, { reportAllChanges: false });
   
   // Monitor FID (First Input Delay)
-  getFID(updateSession, { reportAllChanges: true });
+  getFID(updateSession);
   
   // Monitor CLS (Cumulative Layout Shift)
-  getCLS(updateSession, { reportAllChanges: true });
+  // reportAllChanges: false to reduce the number of events
+  getCLS(updateSession, { reportAllChanges: false });
   
   // Monitor TTFB (Time to First Byte)
-  getTTFB(updateSession, { reportAllChanges: true });
+  getTTFB(updateSession);
   
   // Monitor FCP (First Contentful Paint)
-  getFCP(updateSession, { reportAllChanges: true });
+  getFCP(updateSession);
 };
 
 /**

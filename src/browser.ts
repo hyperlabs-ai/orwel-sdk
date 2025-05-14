@@ -1,5 +1,5 @@
 import { Orwel, Config, Visitor, OrwelEvent } from './types';
-import { generateUUID, collectBrowserInfo, createLogger } from './utils';
+import { generateUUID, collectBrowserInfo, createLogger, throttle, debounce } from './utils';
 import { startMonitoring } from './monitoring';
 
 // Create a browser implementation
@@ -13,6 +13,10 @@ export function createBrowserImplementation(): Orwel {
   let isMonitoring = false;
   let session: { id: string; [key: string]: any } = { id: generateUUID() };
   let logger = createLogger({ debug: false, verbose: false });
+  // Flag to track if we have a pending session event in the queue
+  let pendingSessionUpdate = false;
+  // Buffer to accumulate session data before sending
+  let sessionBuffer: Record<string, any> = {};
 
   const queue: OrwelEvent[] = [];
 
@@ -93,6 +97,7 @@ export function createBrowserImplementation(): Orwel {
       isNewSession,
       sessionData: session
     });
+    pendingSessionUpdate = true;
     saveQueue();
   };
 
@@ -105,7 +110,35 @@ export function createBrowserImplementation(): Orwel {
     }
   };
 
+  // Function to send accumulated session data
+  const flushSessionBuffer = debounce(() => {
+    if (Object.keys(sessionBuffer).length > 0) {
+      logger.debug('Flushing session buffer', { properties: Object.keys(sessionBuffer) });
+      
+      // Update session with accumulated data
+      session = { ...session, ...sessionBuffer };
+      saveSession();
+      
+      // Add to queue only if we don't already have a pending session update
+      if (!pendingSessionUpdate) {
+        queue.push({ 
+          type: 'session', 
+          isNewSession: false, 
+          sessionData: session
+        });
+        pendingSessionUpdate = true;
+        saveQueue();
+      }
+      
+      // Clear the buffer
+      sessionBuffer = {};
+    }
+  }, 1000); // Debounce for 1 second to batch updates
+
   const flush = async () => {
+    // Make sure any pending session updates are processed
+    flushSessionBuffer.apply(null);
+    
     logger.debug('Flushing event queue', { count: queue.length });
     let sentCount = 0;
     
@@ -113,7 +146,12 @@ export function createBrowserImplementation(): Orwel {
       const evt = queue.shift();
       if (evt) {
         const result = await send(evt);
-        if (result) sentCount++;
+        if (result) {
+          sentCount++;
+          if (evt.type === 'session') {
+            pendingSessionUpdate = false;
+          }
+        }
       }
     }
     
@@ -153,7 +191,7 @@ export function createBrowserImplementation(): Orwel {
     }
   };
 
-  return {
+  const orwel: Orwel = {
     init: (opts: Config) => {
       config = opts;
       
@@ -223,42 +261,32 @@ export function createBrowserImplementation(): Orwel {
       return { success: true, eventId };
     },
     session: (properties: Record<string, any> = {}) => {
-      logger.info('Updating session', properties);
+      logger.info('Updating session data', { properties: Object.keys(properties) });
       
-      // Merge properties with current session
-      session = { ...session, ...properties };
-      saveSession();
+      // Add properties to buffer instead of directly to session
+      sessionBuffer = { ...sessionBuffer, ...properties };
       
-      // Send session update event
-      queue.push({ 
-        type: 'session', 
-        isNewSession: false, 
-        sessionData: session
-      });
-      saveQueue();
+      // Schedule buffer flush
+      flushSessionBuffer();
       
-      logger.success('Session updated', { id: session.id });
+      logger.success('Session data queued for update', { id: session.id });
       return { success: true, sessionId: session.id };
     },
     monitor: (options = {}) => {
-      if (isMonitoring) {
-        logger.info('Monitoring already active, skipping initialization');
-        return;
+      if (!isMonitoring) {
+        startMonitoring(orwel, options);
+        isMonitoring = true;
+        logger.success('Monitoring started', options);
+      } else {
+        logger.warning('Monitoring already active, ignoring duplicate call');
       }
-      
-      logger.info('Starting monitoring', options);
-      startMonitoring(orwel, options);
-      isMonitoring = true;
-      logger.success('Monitoring started successfully');
+      return { success: true };
     },
-    flush: async () => {
-      logger.info('Manual flush requested');
-      const queueLength = queue.length;
-      await flush();
-      return { success: true, count: queueLength };
-    },
+    flush
   };
+
+  return orwel;
 }
 
 // Create an instance for internal use
-const orwel: Orwel = createBrowserImplementation();
+export const orwel: Orwel = createBrowserImplementation();

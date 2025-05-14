@@ -15,8 +15,8 @@ export const setupMemoryMonitoring = (orwel: Orwel): void => {
       });
     };
 
-    // Check every 30 seconds
-    setInterval(trackMemory, 30000);
+    // Check every 60 seconds
+    setInterval(trackMemory, 60000);
     trackMemory(); // Initial reading
   }
 }; 

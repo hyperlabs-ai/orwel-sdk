@@ -10,6 +10,48 @@ export const generateUUID = (): string => {
 // Check if we're in a browser environment
 export const isBrowser = typeof window !== 'undefined';
 
+// Throttle utility - limits function calls to once per specified interval
+export const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): ((...args: Parameters<T>) => ReturnType<T> | undefined) => {
+  let inThrottle: boolean = false;
+  let lastResult: ReturnType<T> | undefined;
+  
+  return function(this: any, ...args: Parameters<T>): ReturnType<T> | undefined {
+    if (!inThrottle) {
+      lastResult = func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
+    }
+    return lastResult;
+  };
+};
+
+// Debounce utility - delays function execution until after wait milliseconds have elapsed
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  immediate: boolean = false
+): ((...args: Parameters<T>) => void) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return function(this: any, ...args: Parameters<T>): void {
+    const later = () => {
+      timeout = null;
+      if (!immediate) func.apply(this, args);
+    };
+    
+    const callNow = immediate && !timeout;
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    
+    if (callNow) func.apply(this, args);
+  };
+};
+
 // Logger utility with emoji support
 export const createLogger = (config: { debug?: boolean; verbose?: boolean }) => {
   const isDebug = config.debug === true;
