@@ -10,6 +10,67 @@ export const generateUUID = (): string => {
 // Check if we're in a browser environment
 export const isBrowser = typeof window !== 'undefined';
 
+// Logger utility with emoji support
+export const createLogger = (config: { debug?: boolean; verbose?: boolean }) => {
+  const isDebug = config.debug === true;
+  const isVerbose = config.verbose === true;
+  
+  const logLevels = {
+    success: {
+      emoji: '🟢',
+      method: 'log',
+    },
+    info: {
+      emoji: '🔵',
+      method: 'info',
+    },
+    warning: {
+      emoji: '🟠',
+      method: 'warn',
+    },
+    error: {
+      emoji: '🔴',
+      method: 'error',
+    },
+    debug: {
+      emoji: '🟣',
+      method: 'debug',
+    },
+  };
+
+  const prefix = '[Orwel SDK]';
+  
+  const logger = {
+    success: (message: string, data?: any) => {
+      if (isDebug) {
+        console.log(`${prefix} ${logLevels.success.emoji} ${message}`, data ? data : '');
+      }
+    },
+    info: (message: string, data?: any) => {
+      if (isDebug) {
+        console.info(`${prefix} ${logLevels.info.emoji} ${message}`, data ? data : '');
+      }
+    },
+    warning: (message: string, data?: any) => {
+      if (isDebug) {
+        console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`, data ? data : '');
+      }
+    },
+    error: (message: string, data?: any) => {
+      if (isDebug) {
+        console.error(`${prefix} ${logLevels.error.emoji} ${message}`, data ? data : '');
+      }
+    },
+    debug: (message: string, data?: any) => {
+      if (isDebug && isVerbose) {
+        console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`, data ? data : '');
+      }
+    },
+  };
+  
+  return logger;
+};
+
 // Collect browser information automatically
 export const collectBrowserInfo = (): Record<string, any> => {
   if (!isBrowser) return {};

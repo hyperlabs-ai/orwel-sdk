@@ -11,6 +11,8 @@ export interface Orwel {
 export interface Config {
   apiKey: string;
   autoMonitor?: boolean;
+  debug?: boolean;
+  verbose?: boolean;
   [key: string]: any;
 }
 
