@@ -7,17 +7,21 @@ export const setupConsoleMonitoring = (orwel: Orwel): void => {
   };
 
   console.error = function(...args) {
-    orwel.track('console_error', {
-      message: args.map(arg => String(arg)).join(' '),
-      timestamp: Date.now()
+    orwel.session({
+      consoleErrors: {
+        message: args.map(arg => String(arg)).join(' '),
+        timestamp: Date.now()
+      }
     });
     originalConsole.error.apply(console, args);
   };
 
   console.warn = function(...args) {
-    orwel.track('console_warn', {
-      message: args.map(arg => String(arg)).join(' '),
-      timestamp: Date.now()
+    orwel.session({
+      consoleWarns: {
+        message: args.map(arg => String(arg)).join(' '),
+        timestamp: Date.now()
+      }
     });
     originalConsole.warn.apply(console, args);
   };

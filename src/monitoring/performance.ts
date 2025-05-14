@@ -18,9 +18,8 @@ export const setupPerformanceMonitoring = (orwel: Orwel): void => {
         const entries = list.getEntries();
         for (const entry of entries) {
           if (entry.entryType === 'navigation') {
-            orwel.track('page_performance', {
-              type: 'navigation',
-              data: serializePerformanceEntry(entry)
+            orwel.session({
+              navigation: serializePerformanceEntry(entry)
             });
           }
         }
@@ -45,10 +44,8 @@ export const setupPerformanceMonitoring = (orwel: Orwel): void => {
         }
         
         if (resources.length > 0) {
-          orwel.track('resource_performance', {
-            type: 'resources',
-            count: resources.length,
-            data: resources
+          orwel.session({
+            resources: resources
           });
         }
       });
@@ -66,9 +63,8 @@ const trackPerformanceMetrics = (orwel: Orwel): void => {
     window.performance.getEntriesByType('navigation')[0];
   
   if (navEntry) {
-    orwel.track('page_performance', {
-      type: 'page_load',
-      data: serializePerformanceEntry(navEntry)
+    orwel.session({
+      pageLoad: serializePerformanceEntry(navEntry)
     });
   } else {
     // Fallback for older browsers
@@ -82,9 +78,8 @@ const trackPerformanceMetrics = (orwel: Orwel): void => {
         domInteractive: timing.domInteractive - timing.navigationStart
       };
       
-      orwel.track('page_performance', {
-        type: 'page_load',
-        data: pageLoadData
+      orwel.session({
+        pageLoad: pageLoadData
       });
     }
   }
@@ -102,9 +97,8 @@ const trackPerformanceMetrics = (orwel: Orwel): void => {
       }
     }
 
-    orwel.track('paint_performance', {
-      type: 'paint_metrics',
-      data: paintData
+    orwel.session({
+      paintMetrics: paintData
     });
   }
 }; 

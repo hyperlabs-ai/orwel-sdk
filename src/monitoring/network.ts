@@ -22,21 +22,27 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
   XMLHttpRequest.prototype.send = function(...args) {
     this.addEventListener('load', function(this: XMLHttpRequest) {
       const duration = Date.now() - (this._orwelStartTime || 0);
-      orwel.track('network_request', {
-        url: String(this._orwelUrl || ''),
-        method: this._orwelMethod || 'unknown',
-        status: this.status,
-        duration,
-        success: this.status >= 200 && this.status < 300
+      orwel.session({
+        networkRequests: [{
+          url: String(this._orwelUrl || ''),
+          method: this._orwelMethod || 'unknown',
+          status: this.status,
+          duration,
+          success: this.status >= 200 && this.status < 300,
+          timestamp: Date.now()
+        }]
       });
     });
 
     this.addEventListener('error', function(this: XMLHttpRequest) {
       const duration = Date.now() - (this._orwelStartTime || 0);
-      orwel.track('network_error', {
-        url: String(this._orwelUrl || ''),
-        method: this._orwelMethod || 'unknown',
-        duration
+      orwel.session({
+        networkErrors: [{
+          url: String(this._orwelUrl || ''),
+          method: this._orwelMethod || 'unknown',
+          duration,
+          timestamp: Date.now()
+        }]
       });
     });
 
@@ -56,22 +62,28 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
       return originalFetch.apply(window, [input, init])
         .then(response => {
           const duration = Date.now() - startTime;
-          orwel.track('network_request', {
-            url,
-            method,
-            status: response.status,
-            duration,
-            success: response.ok
+          orwel.session({
+            networkRequests: [{
+              url,
+              method,
+              status: response.status,
+              duration,
+              success: response.ok,
+              timestamp: Date.now()
+            }]
           });
           return response;
         })
         .catch(error => {
           const duration = Date.now() - startTime;
-          orwel.track('network_error', {
-            url,
-            method,
-            duration,
-            message: error.message
+          orwel.session({
+            networkErrors: [{
+              url,
+              method,
+              duration,
+              message: error.message,
+              timestamp: Date.now()
+            }]
           });
           throw error;
         });

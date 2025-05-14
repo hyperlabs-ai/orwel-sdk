@@ -5,10 +5,13 @@ export const setupMemoryMonitoring = (orwel: Orwel): void => {
   if (performance && (performance as any).memory) {
     const trackMemory = () => {
       const memory = (performance as any).memory;
-      orwel.track('memory_usage', {
-        totalJSHeapSize: memory.totalJSHeapSize,
-        usedJSHeapSize: memory.usedJSHeapSize,
-        jsHeapSizeLimit: memory.jsHeapSizeLimit
+      orwel.session({
+        memory: {
+          totalJSHeapSize: memory.totalJSHeapSize,
+          usedJSHeapSize: memory.usedJSHeapSize,
+          jsHeapSizeLimit: memory.jsHeapSizeLimit,
+          timestamp: Date.now()
+        }
       });
     };
 

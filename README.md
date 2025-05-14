@@ -29,6 +29,12 @@ orwel.track('form_submitted', {
   utm_source: 'google'
 })
 
+// Store performance metrics and other data in the session
+orwel.session({
+  currentPage: 'homepage',
+  experimentGroup: 'B'
+})
+
 // Enable application monitoring
 orwel.monitor()
 ```
@@ -50,9 +56,9 @@ orwel.monitor()
 | `init(config)` | Set your apiKey for identification (workspace is optional, autoMonitor to enable monitoring) |
 | `identify(traits)` | Attach metadata to the current visitor (ID auto-generated & persisted) |
 | `track(code, props)` | Track named events (e.g. form_submitted, page_view) |
-| `log(type, data)` | Save micro-interactions like hovers or scrolls (local only) |
+| `session(props)` | Store session data like performance metrics and user preferences |
 | `monitor(options)` | Enable performance, error, console, network and memory monitoring |
-| `flush()` | Force-send any pending events and logs |
+| `flush()` | Force-send any pending events |
 
 ## 🔍 Monitoring Features
 
@@ -132,30 +138,65 @@ When you call `identify()`, the SDK automatically collects:
 ## 💾 Offline & Resilient
 
 - Events are queued in localStorage if offline or unloads occur
-- Micro-events via log() are stored locally and batched on next flush()
+- Session data is persisted in localStorage
 - Automatic flush() on beforeunload and visibilitychange
 - Visitor IDs are automatically generated and persisted across sessions
-
-## 📡 Endpoint
-
-All events are sent to:
-
-```
-POST https://api.orwel.io/ingest
-```
-
-with your API key in the X-Orwel-Key header.
+- Session IDs uniquely identify each browser session
 
 ## 🔧 Configuration Options
 
 ```javascript
 orwel.init({
   apiKey: 'your-orwel-api-key',       // Required: Your Orwel API key
-  workspace: 'workspace-id',   // Optional: Identifier for your app
   autoMonitor: true,            // Optional: Auto-enable monitoring
   // Any additional custom configuration parameters
 });
 ```
+
+## 🚀 Session Tracking
+
+Orwel automatically stores performance and monitoring metrics in the session:
+
+```javascript
+// Add custom data to the session
+orwel.session({
+  userPreferences: {
+    theme: 'dark',
+    fontSize: 'large'
+  },
+  abTests: {
+    newHeader: 'variant_b',
+    checkoutFlow: 'two_step'
+  }
+});
+
+// Data is merged with existing session data
+orwel.session({
+  activePage: 'checkout',
+  cartValue: 99.99
+});
+```
+
+When monitoring is enabled, the session automatically collects:
+- Page load metrics
+- Resource timing
+- JavaScript errors
+- Network requests
+- And more
+
+### Automatic Session Events
+
+The SDK automatically sends session events to your backend:
+
+1. **Session Start**: When the SDK initializes and creates a new session
+2. **Session Updates**: Every time the `session()` method is called
+3. **Session Data with Events**: All session data is included with every tracked event
+
+These session events can be processed on your backend with the type `'session'`, allowing you to:
+- Track user session duration
+- Monitor session-specific metrics
+- Associate metrics with specific sessions
+- Analyze performance data across sessions
 
 ## 📄 License
 

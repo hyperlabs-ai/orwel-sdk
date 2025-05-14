@@ -11,7 +11,7 @@ export function createBrowserImplementation(): Orwel {
   let config: Config = {} as Config;
   let visitor: Visitor = {};
   let isMonitoring = false;
-  let session: Record<string, any> = {};
+  let session: { id: string; [key: string]: any } = { id: generateUUID() };
 
   const queue: OrwelEvent[] = [];
 
@@ -46,6 +46,44 @@ export function createBrowserImplementation(): Orwel {
     } catch (_) {}
   };
 
+  const loadSession = () => {
+    let isNewSession = false;
+    try {
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        session = JSON.parse(saved);
+      } else {
+        session = { 
+          id: generateUUID(), 
+          startedAt: Date.now() 
+        };
+        isNewSession = true;
+        saveSession();
+      }
+    } catch (_) {
+      session = { 
+        id: generateUUID(), 
+        startedAt: Date.now() 
+      };
+      isNewSession = true;
+      saveSession();
+    }
+    
+    // Send session event to the server
+    queue.push({ 
+      type: 'session', 
+      isNewSession,
+      sessionData: session
+    });
+    saveQueue();
+  };
+
+  const saveSession = () => {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (_) {}
+  };
+
   const flush = async () => {
     while (queue.length > 0) {
       const evt = queue.shift();
@@ -60,6 +98,7 @@ export function createBrowserImplementation(): Orwel {
       const payload = {
         ...event,
         visitor,
+        session,
         timestamp: new Date().toISOString(),
       };
 
@@ -77,13 +116,6 @@ export function createBrowserImplementation(): Orwel {
       queue.push(event);
       saveQueue();
     }
-  };
-
-  const loadSession = () => {
-    try {
-      const saved = localStorage.getItem(SESSION_KEY);
-      if (saved) session = JSON.parse(saved);
-    } catch (_) {}
   };
 
   return {
@@ -126,6 +158,21 @@ export function createBrowserImplementation(): Orwel {
       saveQueue();
       return { success: true, eventId };
     },
+    session: (properties: Record<string, any> = {}) => {
+      // Merge properties with current session
+      session = { ...session, ...properties };
+      saveSession();
+      
+      // Send session update event
+      queue.push({ 
+        type: 'session', 
+        isNewSession: false, 
+        sessionData: session
+      });
+      saveQueue();
+      
+      return { success: true, sessionId: session.id };
+    },
     monitor: (options = {}) => {
       if (isMonitoring) return; // Prevent multiple initializations
       startMonitoring(orwel, options);
@@ -140,4 +187,4 @@ export function createBrowserImplementation(): Orwel {
 }
 
 // Create an instance for internal use
-const orwel: Orwel = createBrowserImplementation(); 
+const orwel: Orwel = createBrowserImplementation();
