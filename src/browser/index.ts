@@ -1,5 +1,5 @@
 import { Orwel, Config, OrwelEvent } from "../types";
-import { createLogger, generateUUID } from "../utils";
+import { createLogger, generateUUID, sanitizeData } from "../utils";
 import { startMonitoring } from "../monitoring";
 import { createStorage } from "./storage";
 import { createVisitorManager } from "./visitor";
@@ -130,10 +130,14 @@ export function createBrowserImplementation(): Orwel {
       const eventId = generateUUID();
       logger.info("Tracking event", { code, eventId });
       
+      // Sanitize incoming properties
+      const sanitizedProps = sanitizeData(properties);
+      logger.debug("Sanitized event properties", sanitizedProps);
+      
       queueManager.addEvent({ 
         type: "track", 
         code, 
-        properties, 
+        properties: sanitizedProps, 
         event: { id: eventId, code } 
       });
       

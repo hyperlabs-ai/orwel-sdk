@@ -1,5 +1,5 @@
 import { debounce } from "../utils";
-import { generateUUID, createLogger } from "../utils";
+import { generateUUID, createLogger, sanitizeData } from "../utils";
 
 /**
  * Creates a session manager that handles session data and persistence
@@ -106,8 +106,12 @@ export function createSessionManager(
       properties: Object.keys(properties),
     });
 
+    // Sanitize incoming properties
+    const sanitizedProps = sanitizeData(properties);
+    logger.debug("Sanitized session properties", sanitizedProps);
+
     // Añadir propiedades al buffer en lugar de directamente a la sesión
-    sessionBuffer = { ...sessionBuffer, ...properties };
+    sessionBuffer = { ...sessionBuffer, ...sanitizedProps };
 
     // Programar vaciado del buffer
     flushSessionBuffer();

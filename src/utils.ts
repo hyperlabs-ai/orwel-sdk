@@ -181,6 +181,137 @@ export const collectBrowserInfo = (): Record<string, any> => {
   return info;
 };
 
+// Sanitize user input data to prevent circular references, excessive nesting, and handle non-serializable types
+export const sanitizeData = <T extends Record<string, any>>(
+  data: T,
+  options: {
+    maxDepth?: number,
+    maxKeys?: number,
+    maxStringLength?: number
+  } = {}
+): Record<string, any> => {
+  const {
+    maxDepth = 10,         // Maximum nesting depth
+    maxKeys = 100,         // Maximum keys in the entire object
+    maxStringLength = 1000 // Maximum string length
+  } = options;
+  
+  // Track total keys processed
+  let totalKeys = 0;
+  // Track visited references to avoid circular references
+  const visited = new WeakMap();
+  
+  function sanitize(value: any, currentDepth: number): any {
+    // Check depth limit
+    if (currentDepth > maxDepth) {
+      return '[Max Depth Exceeded]';
+    }
+    
+    // Check total keys limit
+    if (totalKeys > maxKeys) {
+      return '[Max Keys Exceeded]';
+    }
+    
+    // Handle null/undefined
+    if (value === null || value === undefined) {
+      return value;
+    }
+    
+    // Handle primitives
+    const type = typeof value;
+    
+    if (type === 'string') {
+      // Truncate long strings
+      return value.length > maxStringLength 
+        ? value.substring(0, maxStringLength) + '...[truncated]'
+        : value;
+    }
+    
+    if (type === 'number' || type === 'boolean') {
+      return value;
+    }
+    
+    // Handle Date objects
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    
+    // Handle functions
+    if (type === 'function') {
+      return '[Function]';
+    }
+    
+    // Handle non-plain objects
+    if (value instanceof Error) {
+      return `[Error: ${value.message}]`;
+    }
+    
+    if (value instanceof RegExp) {
+      return value.toString();
+    }
+    
+    // Check for DOM nodes
+    if (isBrowser && value instanceof Node) {
+      return '[DOM Node]';
+    }
+    
+    // Handle arrays
+    if (Array.isArray(value)) {
+      // Check for circular references
+      if (visited.has(value)) {
+        return '[Circular Reference]';
+      }
+      
+      visited.set(value, true);
+      
+      // Sanitize each item in the array
+      const result = [];
+      for (let i = 0; i < value.length; i++) {
+        if (totalKeys < maxKeys) {
+          totalKeys++;
+          result.push(sanitize(value[i], currentDepth + 1));
+        } else {
+          result.push('[Max Keys Exceeded]');
+          break;
+        }
+      }
+      
+      return result;
+    }
+    
+    // Handle objects
+    if (type === 'object') {
+      // Check for circular references
+      if (visited.has(value)) {
+        return '[Circular Reference]';
+      }
+      
+      visited.set(value, true);
+      
+      // Sanitize each property of the object
+      const result: Record<string, any> = {};
+      for (const key in value) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          if (totalKeys < maxKeys) {
+            totalKeys++;
+            result[key] = sanitize(value[key], currentDepth + 1);
+          } else {
+            break;
+          }
+        }
+      }
+      
+      return result;
+    }
+    
+    // For any other types, convert to string
+    return `[${type}]`;
+  }
+  
+  // Start sanitization from depth 1
+  return sanitize(data, 1);
+};
+
 // Helper to serialize performance entries
 export const serializePerformanceEntry = (entry: PerformanceEntry): any => {
   const result: Record<string, any> = {};

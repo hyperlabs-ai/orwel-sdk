@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added UUID dependency for more robust unique ID generation
+- Implemented data sanitization to prevent issues with circular references and non-serializable values
 
 ### Refactored
 - Complete modularization of the SDK core
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better memory usage through improved module isolation
 - Reduced code duplication across components
 - More consistent error handling across modules
+- Data sanitization for all user-provided inputs to prevent serialization issues
 
 ## [1.0.12] - 2025-05-14
 
