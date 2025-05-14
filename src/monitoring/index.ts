@@ -4,6 +4,7 @@ import { setupErrorMonitoring } from './errors';
 import { setupConsoleMonitoring } from './console';
 import { setupNetworkMonitoring } from './network';
 import { setupMemoryMonitoring } from './memory';
+import { setupWebVitalsMonitoring } from './web-vitals';
 
 export const startMonitoring = (orwel: Orwel, options: MonitorOptions = {}): void => {
   const defaultOptions = {
@@ -11,7 +12,8 @@ export const startMonitoring = (orwel: Orwel, options: MonitorOptions = {}): voi
     errors: true,
     console: true,
     network: false,
-    memory: false
+    memory: false,
+    webVitals: true
   };
   
   const settings = { ...defaultOptions, ...options };
@@ -21,4 +23,5 @@ export const startMonitoring = (orwel: Orwel, options: MonitorOptions = {}): voi
   if (settings.console) setupConsoleMonitoring(orwel);
   if (settings.network) setupNetworkMonitoring(orwel);
   if (settings.memory) setupMemoryMonitoring(orwel);
+  if (settings.webVitals) setupWebVitalsMonitoring(orwel);
 }; 

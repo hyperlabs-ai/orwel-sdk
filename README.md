@@ -74,7 +74,8 @@ orwel.monitor({
   errors: true,
   console: true,
   network: true,
-  memory: true
+  memory: true,
+  webVitals: true
 });
 ```
 
@@ -83,6 +84,14 @@ orwel.monitor({
 - First Paint and First Contentful Paint metrics
 - Resource loading performance (images, scripts, etc.)
 - Navigation types (first load, reload, back/forward)
+
+### Web Vitals Monitoring
+- LCP (Largest Contentful Paint): measures loading performance
+- FID (First Input Delay): measures interactivity
+- CLS (Cumulative Layout Shift): measures visual stability
+- TTFB (Time to First Byte): measures server response time
+- FCP (First Contentful Paint): measures perceived load speed
+- Each metric includes value and rating (good, needs improvement, poor)
 
 ### Error Monitoring
 - JavaScript errors with filename, line number, and stack trace

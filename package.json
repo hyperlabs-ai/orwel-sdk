@@ -38,6 +38,9 @@
     "url": "https://github.com/hyperlabs-ai/orwel-sdk/issues"
   },
   "homepage": "https://github.com/hyperlabs-ai/orwel-sdk#readme",
+  "dependencies": {
+    "web-vitals": "^3.5.0"
+  },
   "devDependencies": {
     "@types/node": "^18.16.0",
     "typescript": "^5.8.3",

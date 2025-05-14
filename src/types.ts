@@ -22,6 +22,7 @@ export interface MonitorOptions {
   console?: boolean;
   network?: boolean;
   memory?: boolean;
+  webVitals?: boolean;
 }
 
 // Internal interfaces
