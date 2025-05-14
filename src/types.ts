@@ -3,7 +3,6 @@ export interface Orwel {
   init: (opts: Config) => void;
   identify: (traits?: Record<string, any>) => { success: boolean; visitorId: string };
   track: (code: string, properties?: Record<string, any>) => { success: boolean; eventId: string };
-  log: (type: string, data?: Record<string, any>) => { success: boolean; logId: string };
   monitor: (options?: MonitorOptions) => void;
   flush: () => Promise<{ success: boolean; count: number }>;
 }
@@ -31,13 +30,6 @@ export interface Visitor {
 export interface OrwelEvent {
   type: string;
   [key: string]: any;
-}
-
-export interface LogEntry {
-  type: string;
-  data: any;
-  timestamp: string;
-  logId?: string;
 }
 
 // Extend global interfaces

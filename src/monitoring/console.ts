@@ -7,7 +7,7 @@ export const setupConsoleMonitoring = (orwel: Orwel): void => {
   };
 
   console.error = function(...args) {
-    orwel.log('console_error', {
+    orwel.track('console_error', {
       message: args.map(arg => String(arg)).join(' '),
       timestamp: Date.now()
     });
@@ -15,7 +15,7 @@ export const setupConsoleMonitoring = (orwel: Orwel): void => {
   };
 
   console.warn = function(...args) {
-    orwel.log('console_warn', {
+    orwel.track('console_warn', {
       message: args.map(arg => String(arg)).join(' '),
       timestamp: Date.now()
     });

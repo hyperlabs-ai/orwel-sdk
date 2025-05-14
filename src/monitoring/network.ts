@@ -22,7 +22,7 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
   XMLHttpRequest.prototype.send = function(...args) {
     this.addEventListener('load', function(this: XMLHttpRequest) {
       const duration = Date.now() - (this._orwelStartTime || 0);
-      orwel.log('network_request', {
+      orwel.track('network_request', {
         url: String(this._orwelUrl || ''),
         method: this._orwelMethod || 'unknown',
         status: this.status,
@@ -33,7 +33,7 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
 
     this.addEventListener('error', function(this: XMLHttpRequest) {
       const duration = Date.now() - (this._orwelStartTime || 0);
-      orwel.log('network_error', {
+      orwel.track('network_error', {
         url: String(this._orwelUrl || ''),
         method: this._orwelMethod || 'unknown',
         duration
@@ -56,7 +56,7 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
       return originalFetch.apply(window, [input, init])
         .then(response => {
           const duration = Date.now() - startTime;
-          orwel.log('network_request', {
+          orwel.track('network_request', {
             url,
             method,
             status: response.status,
@@ -67,7 +67,7 @@ export const setupNetworkMonitoring = (orwel: Orwel): void => {
         })
         .catch(error => {
           const duration = Date.now() - startTime;
-          orwel.log('network_error', {
+          orwel.track('network_error', {
             url,
             method,
             duration,

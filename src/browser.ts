@@ -1,19 +1,19 @@
-import { Orwel, Config, Visitor, OrwelEvent, LogEntry } from './types';
+import { Orwel, Config, Visitor, OrwelEvent } from './types';
 import { generateUUID, collectBrowserInfo } from './utils';
 import { startMonitoring } from './monitoring';
 
 // Create a browser implementation
 export function createBrowserImplementation(): Orwel {
   const QUEUE_KEY = '__orwel_queue__';
-  const LOG_KEY = '__orwel_log__';
   const VISITOR_KEY = '__orwel_visitor__';
+  const SESSION_KEY = '__orwel_session__';
 
   let config: Config = {} as Config;
   let visitor: Visitor = {};
   let isMonitoring = false;
+  let session: Record<string, any> = {};
 
   const queue: OrwelEvent[] = [];
-  const logBuffer: LogEntry[] = [];
 
   const loadQueue = () => {
     try {
@@ -46,26 +46,12 @@ export function createBrowserImplementation(): Orwel {
     } catch (_) {}
   };
 
-  const loadLog = () => {
-    try {
-      const saved = localStorage.getItem(LOG_KEY);
-      if (saved) logBuffer.push(...JSON.parse(saved));
-    } catch (_) {}
-  };
-
-  const saveLog = () => {
-    try {
-      localStorage.setItem(LOG_KEY, JSON.stringify(logBuffer));
-    } catch (_) {}
-  };
-
   const flush = async () => {
     while (queue.length > 0) {
       const evt = queue.shift();
       if (evt) await send(evt);
     }
     saveQueue();
-    await flushLogs();
     return Promise.resolve();
   };
 
@@ -93,37 +79,19 @@ export function createBrowserImplementation(): Orwel {
     }
   };
 
-  const flushLogs = async () => {
-    if (logBuffer.length === 0) return;
-    const payload = {
-      type: 'log_batch',
-      visitor,
-      logs: [...logBuffer],
-      timestamp: new Date().toISOString()
-    };
+  const loadSession = () => {
     try {
-      await fetch('https://api.orwel.io/ingest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Orwel-Key': config.apiKey,
-        },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      });
-      logBuffer.length = 0;
-      saveLog();
-    } catch (err) {
-      console.warn('[Orwel SDK] Failed to flush logs', err);
-    }
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) session = JSON.parse(saved);
+    } catch (_) {}
   };
 
   return {
     init: (opts: Config) => {
       config = opts;
       loadQueue();
-      loadLog();
       loadVisitor();
+      loadSession();
       window.addEventListener('beforeunload', flush);
       window.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') flush();
@@ -158,24 +126,13 @@ export function createBrowserImplementation(): Orwel {
       saveQueue();
       return { success: true, eventId };
     },
-    log: (type: string, data: Record<string, any> = {}) => {
-      const logId = generateUUID();
-      logBuffer.push({
-        type,
-        data,
-        timestamp: new Date().toISOString(),
-        logId
-      });
-      saveLog();
-      return { success: true, logId };
-    },
     monitor: (options = {}) => {
       if (isMonitoring) return; // Prevent multiple initializations
       startMonitoring(orwel, options);
       isMonitoring = true;
     },
     flush: async () => {
-      const queueLength = queue.length + logBuffer.length;
+      const queueLength = queue.length;
       await flush();
       return { success: true, count: queueLength };
     },
