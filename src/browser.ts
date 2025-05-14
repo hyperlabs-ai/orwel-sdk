@@ -119,16 +119,29 @@ export function createBrowserImplementation(): Orwel {
       session = { ...session, ...sessionBuffer };
       saveSession();
       
-      // Add to queue only if we don't already have a pending session update
-      if (!pendingSessionUpdate) {
+      // CHANGE: Instead of adding a new event, find and update existing session event or add new one
+      const existingSessionEventIndex = queue.findIndex(evt => evt.type === 'session');
+      
+      if (existingSessionEventIndex >= 0) {
+        // Update existing session event instead of adding a new one
+        queue[existingSessionEventIndex] = { 
+          type: 'session', 
+          isNewSession: false, 
+          sessionData: { ...session }
+        };
+        logger.debug('Updated existing session event in queue');
+      } else {
+        // Only add if no session event exists
         queue.push({ 
           type: 'session', 
           isNewSession: false, 
-          sessionData: session
+          sessionData: { ...session }
         });
-        pendingSessionUpdate = true;
-        saveQueue();
+        logger.debug('Added new session event to queue');
       }
+      
+      pendingSessionUpdate = true;
+      saveQueue();
       
       // Clear the buffer
       sessionBuffer = {};
@@ -171,7 +184,7 @@ export function createBrowserImplementation(): Orwel {
 
       logger.debug('Sending event to server', { type: event.type });
       
-      await fetch('https://api.orwel.io/ingest', {
+      const response = await fetch('https://api.orwel.io/ingest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,12 +194,42 @@ export function createBrowserImplementation(): Orwel {
         keepalive: true,
       });
       
+      if (!response.ok) {
+        // Si es error 400, es un problema con el formato y no debemos reintentar
+        if (response.status === 400) {
+          logger.error('Bad request error (format issue) - not retrying', { 
+            type: event.type, 
+            status: response.status,
+            statusText: response.statusText
+          });
+          return true; // Evita reinsertar en la cola
+        }
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
       logger.success('Event sent successfully', { type: event.type });
+      
+      // Si era un evento de sesión, resetear el flag
+      if (event.type === 'session') {
+        pendingSessionUpdate = false;
+      }
+      
       return true;
     } catch (err) {
       logger.error('Failed to send event', { type: event.type, error: err });
-      queue.push(event);
-      saveQueue();
+      
+      // Solo reinsertar si no hemos reintentado demasiadas veces
+      if (!event.__retryCount) event.__retryCount = 0;
+      
+      if (event.__retryCount < 3) {
+        event.__retryCount++;
+        queue.push(event);
+        saveQueue();
+        logger.debug('Requeuing event for retry', { type: event.type, retry: event.__retryCount });
+      } else {
+        logger.warning('Dropping event after max retries', { type: event.type });
+      }
+      
       return false;
     }
   };
@@ -254,7 +297,8 @@ export function createBrowserImplementation(): Orwel {
       const eventId = generateUUID();
       logger.info('Tracking event', { code, eventId });
       
-      queue.push({ type: 'track', code, properties, eventId });
+      //! PAYLOAD
+      queue.push({ type: 'track', code, properties, event: { id: eventId, code } });
       saveQueue();
       
       logger.success('Event tracked', { code, eventId });

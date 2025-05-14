@@ -33,6 +33,7 @@ export interface Visitor {
 
 export interface OrwelEvent {
   type: string;
+  __retryCount?: number;
   [key: string]: any;
 }
 
