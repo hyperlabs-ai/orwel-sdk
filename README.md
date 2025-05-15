@@ -9,34 +9,187 @@
 ```bash
 npm install orwel
 ```
+
+## 🔑 Key Concepts
+
+Before diving into the implementation, it's important to understand some key concepts:
+
+### Singleton Pattern
+Orwel uses a singleton pattern, meaning there's only one instance of the SDK throughout your application. You don't need to create new instances with `new Orwel()` - instead, you import the pre-configured instance and initialize it:
+
 ```ts
 import { orwel } from 'orwel'
 
+// Initialize as early as possible in your application
 orwel.init({
   apiKey: 'orwel_xxxxxxxxxxxxx',
-  // workspace is optional - it can be detected from your API key
   autoMonitor: true, // optional: automatically enable all monitoring features
 })
+```
 
+### Initialization Timing
+The `init()` call should be placed:
+- **React**: In your root component (e.g., `App.js`) or initialization component
+- **Next.js**: In `_app.js` or root layout
+- **Vue**: In `main.js` before mounting the app
+- **Plain HTML**: In `<head>` or early in `<body>`
+
+### State Management
+Once initialized:
+- Configuration is stored in memory and persists throughout the session
+- Visitor data is stored in localStorage/cookies for cross-session persistence
+- You can import and use `orwel` from any file without re-initialization
+
+## 💡 Usage Examples
+
+### Basic Event Tracking
+```ts
+// Track a simple event
+orwel.track('button_clicked')
+
+// Track with properties
+orwel.track('form_submitted', {
+  form_id: 'contact',
+  time_to_complete: 45,
+  errors_count: 0
+})
+```
+
+## 🎯 Event Types & Tracking
+
+Events in Orwel are not random strings - they follow a predefined schema to ensure consistency and enable powerful analytics:
+
+### Standard Events
+A comprehensive list of standard events is available at [orwel.io/events](https://orwel.io/events). These events are optimized for common tracking scenarios:
+
+```typescript
+// User interaction events
+orwel.track('button_click', { button_id: 'submit_form' })
+orwel.track('page_view', { path: '/checkout' })
+orwel.track('form_submit', { form_name: 'signup' })
+
+// E-commerce events
+orwel.track('product_view', { product_id: '123', price: 99.99 })
+orwel.track('add_to_cart', { product_id: '123', quantity: 1 })
+orwel.track('checkout_complete', { order_id: 'ORDER123' })
+
+// Subscription events
+orwel.track('subscription_started', { plan: 'pro', method: 'stripe' })
+orwel.track('subscription_cancelled', { reason: 'cost' })
+```
+
+### Custom Events
+For unique tracking needs, you can use:
+
+1. **Custom Event Type**:
+```typescript
+orwel.track('custom_event', {
+  event_category: 'my_feature',
+  event_action: 'special_action',
+  // ... custom properties
+})
+```
+
+2. **Event Aliases**:
+You can create aliases for frequently used custom events in your Orwel dashboard:
+```typescript
+// After creating alias 'special_action' for 'custom_event'
+orwel.track('special_action', {
+  // ... your properties
+})
+```
+
+### Best Practices
+- Use standard events when possible for better analytics integration
+- Keep event names in snake_case format
+- Document custom events and their expected properties
+- Use consistent property names across similar events
+- Avoid sending sensitive data in event properties
+
+### Visitor Identification
+```ts
 orwel.identify({
   // id is auto-generated and persisted if not provided
   email: 'lucas@acme.com',
-  plan: 'pro' // or whatever
+  plan: 'pro',
+  company: 'Acme Inc',
+  subscription_status: 'active'
 })
+```
 
-orwel.track('form_submitted', {
-  campaign: 'Spring Launch',
-  utm_source: 'google'
+## 👤 Visitor Management
+
+The SDK automatically manages visitor identification and persistence. Here's how it works:
+
+### Visitor Lifecycle
+
+1. **Initial Visit**: When the SDK initializes, it automatically:
+   - Generates a unique visitor ID if none exists
+   - Stores it in localStorage under `__orwel_visitor__`
+   - Collects basic browser information
+
+2. **Identifying Visitors**: Use `identify()` to attach traits to the visitor:
+```typescript
+// Returns { success: true, visitorId: 'generated-uuid' }
+const result = orwel.identify({
+  email: 'user@example.com',
+  plan: 'pro'
 })
+```
 
+### Automatic Data Collection
+
+When calling `identify()`, the SDK automatically collects and merges:
+- Browser information
+- User agent details
+- Language preferences
+- Platform information
+
+These are merged with your provided traits, but your explicit values take precedence.
+
+### Storage & Persistence
+
+- Visitor data is stored in localStorage
+- Persists across page reloads and browser sessions
+- Automatically loaded when SDK initializes
+- Synced with server on identify calls
+
+### Implementation Details
+
+The visitor manager:
+1. Loads existing visitor data on init
+2. Generates UUID for new visitors
+3. Merges browser info with provided traits
+4. Persists data to localStorage
+5. Queues identify event for server sync
+
+### Session Management
+```ts
 // Store performance metrics and other data in the session
 orwel.session({
   currentPage: 'homepage',
-  experimentGroup: 'B'
+  experimentGroup: 'B',
+  userPreferences: {
+    theme: 'dark',
+    language: 'en'
+  }
 })
+```
 
-// Enable application monitoring
+### Application Monitoring
+```ts
+// Enable all monitoring features
 orwel.monitor()
+
+// Or customize monitoring options
+orwel.monitor({
+  performance: true,   // Page load and navigation timing
+  errors: true,        // JavaScript errors and unhandled rejections
+  console: true,       // Console errors and warnings
+  network: true,       // XHR and Fetch API calls
+  memory: true,        // Memory usage metrics
+  webVitals: true      // Core Web Vitals metrics
+})
 ```
 
 ## 🔗 Quickstart (via CDN)
@@ -44,130 +197,200 @@ orwel.monitor()
 ```html
 <script src="https://cdn.orwel.io/orwel.js"></script>
 <script>
-  orwel.init({ apiKey: 'pk_live_abc123' }) // workspace is optional
+  orwel.init({ apiKey: 'pk_live_abc123' })
   orwel.track('page_view', { url: window.location.pathname })
 </script>
 ```
 
-## 🧠 Available methods
+## 🧠 Available Methods
 
-| Method | Description |
-|--------|-------------|
-| `init(config)` | Set your apiKey for identification (workspace is optional, autoMonitor to enable monitoring) |
-| `identify(traits)` | Attach metadata to the current visitor (ID auto-generated & persisted) |
-| `track(code, props)` | Track named events (e.g. form_submitted, page_view) |
-| `session(props)` | Store session data like performance metrics and user preferences |
-| `monitor(options)` | Enable performance, error, console, network and memory monitoring |
-| `flush()` | Force-send any pending events |
+| Method | Description | Best Practices |
+|--------|-------------|----------------|
+| `init(config)` | Set your apiKey for identification | Call as early as possible in your app lifecycle. Required before using other methods. |
+| `identify(traits)` | Attach metadata to the current visitor | Call after user authentication or when user data becomes available. Persists across sessions. |
+| `track(code, props)` | Track named events | Use consistent event names. Include relevant properties for analysis. |
+| `session(props)` | Store session data | Use for temporary state that shouldn't persist across sessions. Automatically included with events. |
+| `monitor(options)` | Enable monitoring features | Enable early to catch all relevant metrics. Consider performance impact of enabled features. |
+| `flush()` | Force-send pending events | Called automatically on page unload. Manual calls rarely needed. |
 
 ## 🔍 Monitoring Features
 
-The SDK includes comprehensive application monitoring that can be enabled with one line of code:
-
-```javascript
-// Enable all monitoring features
-orwel.monitor();
-
-// Or selectively enable specific monitoring features
-orwel.monitor({
-  performance: true,
-  errors: true,
-  console: true,
-  network: true,
-  memory: true,
-  webVitals: true
-});
-```
+The SDK includes comprehensive application monitoring that can be enabled with one line of code. Each feature is designed to have minimal performance impact and can be enabled/disabled independently.
 
 ### Performance Monitoring
-- Page load timing (navigation, DOM ready, time to first byte)
-- First Paint and First Contentful Paint metrics
-- Resource loading performance (images, scripts, etc.)
-- Navigation types (first load, reload, back/forward)
+Automatically tracks:
+- Navigation Timing API metrics
+- Resource loading performance
+- Paint timing (FP, FCP)
+- Custom performance marks/measures
+
+```javascript
+// Example: Track custom performance mark
+performance.mark('feature_loaded')
+```
 
 ### Web Vitals Monitoring
-- LCP (Largest Contentful Paint): measures loading performance
-- FID (First Input Delay): measures interactivity
-- CLS (Cumulative Layout Shift): measures visual stability
-- TTFB (Time to First Byte): measures server response time
-- FCP (First Contentful Paint): measures perceived load speed
-- Each metric includes value and rating (good, needs improvement, poor)
+Tracks Core Web Vitals with ratings:
+- LCP (Largest Contentful Paint)
+  - Good: < 2.5s
+  - Needs Improvement: 2.5s - 4s
+  - Poor: > 4s
+- FID (First Input Delay)
+  - Good: < 100ms
+  - Needs Improvement: 100ms - 300ms
+  - Poor: > 300ms
+- CLS (Cumulative Layout Shift)
+  - Good: < 0.1
+  - Needs Improvement: 0.1 - 0.25
+  - Poor: > 0.25
 
 ### Error Monitoring
-- JavaScript errors with filename, line number, and stack trace
+Captures:
+- Uncaught JavaScript errors
 - Unhandled promise rejections
+- Stack traces and error context
+- Source file and line numbers
+
+Best practices:
+```javascript
+try {
+  // Your code
+} catch (error) {
+  // Orwel automatically captures these
+  console.error('Operation failed:', error)
+}
+```
 
 ### Console Monitoring
-- Tracks console.error and console.warn calls
+Tracks:
+- `console.error()` calls
+- `console.warn()` calls
+- Automatic deduplication
+- Rate limiting to prevent flooding
 
 ### Network Monitoring
-- XMLHttpRequest (Ajax) requests
-- Fetch API calls
-- Request URL, method, status code, and duration
-- Success/failure status
+Captures:
+- XHR/Fetch requests
+- Response times
+- Status codes
+- Request/response sizes
+- Automatic correlation with events
 
 ### Memory Monitoring
-- JavaScript heap usage metrics (Chrome only)
+Tracks:
+- JS heap size
+- Memory limits
+- Allocation trends
+- GC impact (where available)
 
 ## 📊 Automatic Data Collection
 
-When you call `identify()`, the SDK automatically collects:
+The SDK automatically collects contextual data when you call `identify()`:
 
 ### Browser & Platform
-- User agent, language, platform/OS
-- Do Not Track preference
-- Browser and version
-- Mobile device detection
+```javascript
+// Automatically collected - no code required
+{
+  userAgent: "Mozilla/5.0...",
+  language: "en-US",
+  platform: "MacIntel",
+  doNotTrack: "1",
+  browserName: "Chrome",
+  browserVersion: "91.0.4472.124"
+}
+```
 
 ### Screen & Window
-- Screen dimensions and color depth
-- Viewport dimensions
-- Device pixel ratio
-
-### Page & Navigation
-- Current URL, path, hostname, protocol
-- Referrer
-- Page title
+```javascript
+// Automatic collection
+{
+  screenWidth: 1920,
+  screenHeight: 1080,
+  colorDepth: 24,
+  pixelRatio: 2,
+  viewportWidth: 1200,
+  viewportHeight: 800
+}
+```
 
 ### Device Capabilities
-- Touchscreen support
-- Dark mode preference
-- Online/offline status
-- Connection type and speed
-
-### Hardware
-- CPU cores count
-- Device memory
-- Battery status (collected asynchronously)
-
-### Timezone & Session
-- Timezone
-- Session start timestamp
+```javascript
+// Automatic collection
+{
+  touchscreen: true,
+  darkMode: false,
+  online: true,
+  connectionType: "4g",
+  memory: "8GB",
+  cpuCores: 8
+}
+```
 
 ## 💾 Offline & Resilient
 
-- Events are queued in localStorage if offline or unloads occur
-- Session data is persisted in localStorage
-- Automatic flush() on beforeunload and visibilitychange
-- Visitor IDs are automatically generated and persisted across sessions
-- Session IDs uniquely identify each browser session
+The SDK implements several strategies to ensure data reliability:
+
+### Event Queue
+- Events are stored in localStorage when offline
+- Automatic retry with exponential backoff
+- Queue persistence across page reloads
+- Automatic queue cleanup
+
+### Session Handling
+- Unique session IDs per browser session
+- Automatic session recovery after crashes
+- Session data persistence in localStorage
+- Merge strategy for concurrent updates
+
+### Visitor Identification
+- Anonymous visitor IDs (UUID v4)
+- Cross-session visitor tracking
+- Privacy-compliant tracking
+- Automatic ID management
 
 ## 🔧 Configuration Options
 
 ```javascript
 orwel.init({
-  apiKey: 'your-orwel-api-key',       // Required: Your Orwel API key
-  autoMonitor: true,            // Optional: Auto-enable monitoring
-  // Any additional custom configuration parameters
+  // Required
+  apiKey: 'your-orwel-api-key',
+
+  // Optional features
+  autoMonitor: true,            // Enable all monitoring
+  debug: false,                 // Enable debug logging
+  verbose: false,               // Enable verbose logging
+  
+  // Monitoring options
+  monitoringOptions: {
+    performance: true,          // Performance monitoring
+    errors: true,              // Error tracking
+    console: true,             // Console monitoring
+    network: false,            // Network request tracking
+    memory: false,             // Memory usage monitoring
+    webVitals: true           // Core Web Vitals
+  },
+
+  // Advanced options
+  flushInterval: 30000,        // Flush interval in ms
+  maxQueueSize: 100,           // Max events in queue
+  retryAttempts: 3,            // Failed request retries
+  sessionTimeout: 30           // Session timeout in minutes
 });
 ```
 
 ## 🚀 Session Tracking
 
-Orwel automatically stores performance and monitoring metrics in the session:
+Sessions are a core concept in Orwel, providing a way to group related events and metrics:
 
+### Session Lifecycle
+1. **Creation**: New session on SDK initialization
+2. **Updates**: Through `session()` method calls
+3. **Expiration**: After inactivity timeout
+4. **Termination**: On page unload
+
+### Session Data
 ```javascript
-// Add custom data to the session
+// Add custom data - merges with existing
 orwel.session({
   userPreferences: {
     theme: 'dark',
@@ -179,36 +402,61 @@ orwel.session({
   }
 });
 
-// Data is merged with existing session data
+// Update specific values
 orwel.session({
   activePage: 'checkout',
   cartValue: 99.99
 });
 ```
 
-When monitoring is enabled, the session automatically collects:
+### Automatic Collection
+When monitoring is enabled, sessions automatically include:
 - Page load metrics
 - Resource timing
-- JavaScript errors
-- Network requests
-- And more
+- Error counts
+- Network activity
+- Memory usage
+- Web Vitals
 
-### Automatic Session Events
+### Session Events
+The SDK automatically tracks session lifecycle:
+1. **Session Start**: Initial creation
+2. **Session Updates**: Property changes
+3. **Session End**: Clean termination
+4. **Session Timeout**: Inactivity detection
 
-The SDK automatically sends session events to your backend:
+## 🔒 Privacy & Security
 
-1. **Session Start**: When the SDK initializes and creates a new session
-2. **Session Updates**: Every time the `session()` method is called
-3. **Session Data with Events**: All session data is included with every tracked event
+The SDK implements several privacy and security measures:
 
-These session events can be processed on your backend with the type `'session'`, allowing you to:
-- Track user session duration
-- Monitor session-specific metrics
-- Associate metrics with specific sessions
-- Analyze performance data across sessions
+### Data Collection
+- Respects Do Not Track
+- No PII collection by default
+- Configurable data retention
+- Data minimization
+
+### Security
+- HTTPS-only API endpoints
+- API key validation
+- Rate limiting
+- Request signing
+
+### Compliance
+- GDPR-ready
+- CCPA-compliant
+- Cookie law compatible
+- Privacy policy friendly
 
 ## 📄 License
 
 MIT — built with ✨ by orwel.io
+
+## 🤝 Support
+
+Need help? Check out:
+- [Documentation](https://docs.orwel.io)
+- [API Reference](https://api.orwel.io)
+- [GitHub Issues](https://github.com/hyperlabs-ai/orwel-sdk/issues)
+- [Community Forum](https://community.orwel.io)
 
 
