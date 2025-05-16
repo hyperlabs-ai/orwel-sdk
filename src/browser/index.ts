@@ -116,14 +116,24 @@ export function createBrowserImplementation(): Orwel {
       return visitorManager.identify(traits);
     },
     
-    track: (code: string, properties: Record<string, any> = {}) => {
+    track: (code: string, properties = {}) => {
       const eventId = generateUUID();
       logger.info("Tracking event", { code, eventId });
+
+      // Capturar información completa de la URL
+      const locationData = {
+        path: window.location.pathname,
+        url: window.location.href,
+        hash: window.location.hash,
+        search: window.location.search,
+        hostname: window.location.hostname
+      };
       
       queueManager.addEvent({ 
         type: "track", 
         code,
-        event: { id: eventId, code, properties } 
+        location: locationData,
+        event: { id: eventId, code, properties, source: "orwel-sdk" } 
       });
       
       logger.success("Event tracked", { code, eventId });
