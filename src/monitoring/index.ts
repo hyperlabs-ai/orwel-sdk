@@ -8,9 +8,9 @@ import { setupWebVitalsMonitoring } from './web-vitals';
 
 export const startMonitoring = (orwel: Orwel, options: MonitorOptions = {}): void => {
   const defaultOptions = {
-    performance: true,
-    errors: true,
-    console: true,
+    performance: false,
+    errors: false,
+    console: false,
     network: false,
     memory: false,
     webVitals: true

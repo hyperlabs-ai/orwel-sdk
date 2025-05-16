@@ -122,9 +122,8 @@ export function createBrowserImplementation(): Orwel {
       
       queueManager.addEvent({ 
         type: "track", 
-        code, 
-        properties, 
-        event: { id: eventId, code } 
+        code,
+        event: { id: eventId, code, properties } 
       });
       
       logger.success("Event tracked", { code, eventId });

@@ -45,7 +45,7 @@ export function createSessionManager(
     // Enviar evento de sesión al servidor
     queue.push({
       type: "session",
-      isNewSession: isNew,
+      isNewSession: isNew || true,
       sessionData: session,
     });
     pendingSessionUpdate = true;
