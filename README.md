@@ -1,6 +1,6 @@
 # 🛰️ Orwel SDK
 
-**Orwel** is a lightweight, zero-dependency JavaScript SDK for tracking frontend events, visitor traits, and UX signals — all from a simple script or npm install. Designed for marketing teams and product analysts who want real-time visibility into their funnel.
+**Orwel** is a lightweight, JavaScript SDK for tracking frontend events, visitor traits, and UX signals — all from a simple script or npm install. Designed for marketing teams and product analysts who want real-time visibility into their funnel.
 
 ---
 
