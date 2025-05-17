@@ -1,4 +1,4 @@
-import { Orwel, Config } from './types';
+import { Orwel, Config, FormOptions } from './types';
 import { createLogger } from './utils';
 
 // Create a server implementation (no-op)
@@ -25,6 +25,11 @@ export function createServerImplementation(): Orwel {
     return Promise.resolve({ success: true, count: 0 });
   };
   
+  const noopForm = (formElement: HTMLFormElement, options?: FormOptions) => {
+    logger.debug('Form tracking called (no-op in server environment)');
+    return { success: false };
+  };
+  
   return {
     init: (opts: Config = {} as Config) => {
       // Initialize logger with debug configuration
@@ -48,5 +53,6 @@ export function createServerImplementation(): Orwel {
       logger.debug('Monitor called (no-op in server environment)');
     },
     flush: noopAsync,
+    form: noopForm
   };
 } 

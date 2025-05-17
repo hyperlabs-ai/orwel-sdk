@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orwel Form Tracking Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    form {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 5px;
+      margin-bottom: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    textarea {
+      min-height: 100px;
+    }
+    
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background: #0055aa;
+    }
+    
+    .demo-controls {
+      margin: 20px 0;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .demo-controls button {
+      flex: 1;
+    }
+    
+    #events-log {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .event {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .event-name {
+      font-weight: bold;
+      color: #0066cc;
+    }
+    
+    .event-time {
+      color: #666;
+      font-size: 12px;
+    }
+    
+    .event-props {
+      margin-top: 5px;
+      white-space: pre-wrap;
+    }
+    
+    .form-container {
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .form-container.hidden {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Orwel Form Tracking Demo</h1>
+  
+  <p>This example demonstrates how to use <code>orwel.form()</code> to track form interactions. All events are displayed in the log below.</p>
+  
+  <p><strong>New:</strong> Forms are automatically untracked when they are removed from the DOM or hidden for an extended period.</p>
+
+  <div class="demo-controls">
+    <button id="toggle-form">Hide/Show Form</button>
+    <button id="remove-form">Remove Form</button>
+    <button id="restore-form">Restore Form</button>
+  </div>
+
+  <div id="form-container" class="form-container">
+    <form id="contact-form">
+      <div class="form-group">
+        <label for="name">Full Name *</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email Address *</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" name="phone">
+      </div>
+      
+      <div class="form-group">
+        <label for="interest">Interest</label>
+        <select id="interest" name="interest">
+          <option value="">--Select an option--</option>
+          <option value="product">Product Information</option>
+          <option value="support">Technical Support</option>
+          <option value="demo">Request a Demo</option>
+          <option value="pricing">Pricing Inquiry</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="message">Message *</label>
+        <textarea id="message" name="message" required></textarea>
+      </div>
+      
+      <button type="submit">Submit Form</button>
+    </form>
+  </div>
+  
+  <h2>Events Log</h2>
+  <div id="events-log"></div>
+  
+  <!-- Using local script directly in this example -->
+  <script src="../dist/orwel.js"></script>
+  
+  <script>
+    // Initialize Orwel SDK
+    orwel.init({
+      apiKey: 'test_key_123',
+      debug: true,
+      verbose: true
+    });
+    
+    // Set up visitor identity
+    orwel.identify({
+      email: 'demo@example.com',
+      role: 'visitor'
+    });
+    
+    // Log all tracked events to the UI
+    const originalTrack = orwel.track;
+    orwel.track = function(code, properties) {
+      // Call the original track method
+      const result = originalTrack.call(orwel, code, properties);
+      
+      // Add to the log
+      const eventsLog = document.getElementById('events-log');
+      const eventDiv = document.createElement('div');
+      eventDiv.className = 'event';
+      
+      const eventName = document.createElement('div');
+      eventName.className = 'event-name';
+      eventName.textContent = code;
+      eventDiv.appendChild(eventName);
+      
+      const eventTime = document.createElement('div');
+      eventTime.className = 'event-time';
+      eventTime.textContent = new Date().toLocaleTimeString();
+      eventDiv.appendChild(eventTime);
+      
+      const eventProps = document.createElement('div');
+      eventProps.className = 'event-props';
+      eventProps.textContent = JSON.stringify(properties, null, 2);
+      eventDiv.appendChild(eventProps);
+      
+      eventsLog.appendChild(eventDiv);
+      eventsLog.scrollTop = eventsLog.scrollHeight;
+      
+      return result;
+    };
+
+    // Add a custom log function to show messages in the event log
+    function logMessage(message, data = {}) {
+      const eventsLog = document.getElementById('events-log');
+      const eventDiv = document.createElement('div');
+      eventDiv.className = 'event';
+      
+      const eventName = document.createElement('div');
+      eventName.className = 'event-name';
+      eventName.style.color = '#28a745';
+      eventName.textContent = 'DEMO: ' + message;
+      eventDiv.appendChild(eventName);
+      
+      const eventTime = document.createElement('div');
+      eventTime.className = 'event-time';
+      eventTime.textContent = new Date().toLocaleTimeString();
+      eventDiv.appendChild(eventTime);
+      
+      if (Object.keys(data).length > 0) {
+        const eventProps = document.createElement('div');
+        eventProps.className = 'event-props';
+        eventProps.textContent = JSON.stringify(data, null, 2);
+        eventDiv.appendChild(eventProps);
+      }
+      
+      eventsLog.appendChild(eventDiv);
+      eventsLog.scrollTop = eventsLog.scrollHeight;
+    }
+    
+    // Get the contact form and container
+    const contactForm = document.getElementById('contact-form');
+    const formContainer = document.getElementById('form-container');
+    let savedForm = null;
+    
+    // Track the form with autoUntrack enabled (default)
+    orwel.form(contactForm, {
+      formId: 'contact_us',
+      trackFocus: true,
+      trackInput: true,
+      trackChange: true,
+      trackSubmit: true,
+      trackAbandon: true,
+      autoUntrack: true, // This is on by default, but shown here explicitly
+      submitCallback: (result) => {
+        if (result.success) {
+          logMessage('Form submitted successfully');
+          
+          // In a real app, we might show a success message
+          alert('Form submitted successfully (demo only - no actual submission)');
+          
+          // Reset the form after "submission"
+          setTimeout(() => {
+            contactForm.reset();
+          }, 500);
+        } else {
+          logMessage('Form submission failed', { error: result.error.message });
+          console.error('Form submission failed:', result.error);
+        }
+      }
+    });
+    
+    // Prevent actual form submission for this demo
+    contactForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+    });
+    
+    // Set up demo controls
+    document.getElementById('toggle-form').addEventListener('click', () => {
+      formContainer.classList.toggle('hidden');
+      if (formContainer.classList.contains('hidden')) {
+        logMessage('Form hidden (will auto-untrack after 10 seconds if still hidden)');
+      } else {
+        logMessage('Form visible again');
+        
+        // If the form was recreated and is now visible, track it again
+        if (contactForm && contactForm.parentElement && !document.querySelector('form')) {
+          logMessage('Re-tracking form after it was restored');
+          orwel.form(contactForm, { formId: 'contact_us' });
+        }
+      }
+    });
+    
+    document.getElementById('remove-form').addEventListener('click', () => {
+      if (contactForm.parentElement) {
+        savedForm = contactForm.cloneNode(true);
+        contactForm.remove();
+        logMessage('Form removed from DOM (will auto-untrack immediately)');
+      } else {
+        logMessage('Form already removed');
+      }
+    });
+    
+    document.getElementById('restore-form').addEventListener('click', () => {
+      if (savedForm && !document.querySelector('form')) {
+        formContainer.appendChild(savedForm);
+        savedForm = null;
+        
+        // We need to get a reference to the form again
+        const newForm = document.querySelector('form');
+        if (newForm) {
+          // Manual retracking demo
+          logMessage('Form restored to DOM - manually tracking again');
+          orwel.form(newForm, { formId: 'contact_us' });
+          
+          // Reset event listener since we created a new form
+          newForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+          });
+        }
+      } else {
+        logMessage('No saved form to restore or form already in DOM');
+      }
+    });
+    
+    // Log initial page view
+    orwel.track('page_view', {
+      path: window.location.pathname,
+      title: document.title
+    });
+
+    // Show initial welcome message
+    logMessage('Welcome to the Orwel Form Tracking Demo', {
+      tip: 'Try focusing on fields, entering data, and submitting the form',
+      note: 'Use the controls above to test automatic untracking'
+    });
+  </script>
+</body>
+</html> 

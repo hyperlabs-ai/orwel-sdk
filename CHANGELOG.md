@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.17] - 2025-05-17
+
+### Added
+- Added form tracking functionality with `orwel.form()`
+- Support for tracking form events: focus, input, change, submit, abandon
+- Detailed form interaction analysis with field-level tracking
+- Form submission success/error detection
+- Added form tracking example page
+- Automatic form untracking when forms are removed from DOM or hidden
+- MutationObserver and IntersectionObserver support for smart form tracking
+
+### Improved
+- Expanded TypeScript definitions for better IDE support
+- Enhanced metadata collection for form events
+- Better form abandonment detection with configurable tracking options
+- Memory management for forms through automatic cleanup
+
 ## [1.0.16] - 2025-05-16
 
 ### Added

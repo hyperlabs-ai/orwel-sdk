@@ -210,8 +210,66 @@ orwel.monitor({
 | `identify(traits)` | Attach metadata to the current visitor | Call after user authentication or when user data becomes available. Persists across sessions. |
 | `track(code, props)` | Track named events | Use consistent event names. Include relevant properties for analysis. |
 | `session(props)` | Store session data | Use for temporary state that shouldn't persist across sessions. Automatically included with events. |
+| `form(element, options)` | Track form interactions | Connect to important forms to capture user interaction data, submissions, and abandonment. |
 | `monitor(options)` | Enable monitoring features | Enable early to catch all relevant metrics. Consider performance impact of enabled features. |
 | `flush()` | Force-send pending events | Called automatically on page unload. Manual calls rarely needed. |
+
+## 📝 Form Tracking
+
+The SDK provides comprehensive form tracking capabilities to give you insights into how users interact with your forms.
+
+### Form Tracking Setup
+
+```javascript
+// Get a reference to your form
+const signupForm = document.getElementById('signup-form');
+
+// Start tracking the form
+orwel.form(signupForm, {
+  formId: 'user_signup',               // Unique identifier for the form
+  trackFocus: true,                    // Track when fields are focused
+  trackInput: true,                    // Track when users enter data in fields
+  trackChange: true,                   // Track when field values change
+  trackSubmit: true,                   // Track form submissions
+  trackAbandon: true,                  // Track when users abandon forms
+  autoUntrack: true,                   // Automatically stop tracking when form is removed/hidden (default: true)
+  submitCallback: (result) => {        // Optional callback after submission
+    if (result.success) {
+      // Form submission successful
+    } else {
+      // Form submission failed
+      console.error(result.error);
+    }
+  }
+});
+```
+
+### Form Events
+
+The form tracker generates the following events:
+
+| Event | Description | Key Properties |
+|-------|-------------|----------------|
+| `form_focus` | User focused on a form field | `form_id`, `field_id`, `field_name`, `field_type` |
+| `form_input` | User entered data in a form field | `form_id`, `field_id`, `field_name`, `field_type`, `has_value` |
+| `form_change` | User changed a form field value | `form_id`, `field_id`, `field_name`, `field_type` |
+| `form_submit_attempt` | User attempted to submit the form | `form_id`, `form_fields_count`, `fields_filled_count`, `time_on_form_ms` |
+| `form_submit_success` | Form submitted successfully | `form_id`, `form_fields_count`, `fields_filled_count`, `time_on_form_ms` |
+| `form_submit_error` | Form submission failed | `form_id`, `validation_failed`, `invalid_fields`, `error_message` |
+| `form_abandon` | User abandoned form before completing | `form_id`, `fields_started`, `fields_changed`, `time_on_form_ms`, `time_since_last_interaction_ms` |
+
+### Form Tracking Best Practices
+
+- Add form tracking early in your page lifecycle
+- Use consistent `formId` values across your application
+- Track critical forms (signup, checkout, contact, etc.)
+- Analyze form abandonment to identify UX problems
+- Optimize forms based on field interaction data
+- Monitor submission errors to fix validation issues
+- The `autoUntrack` option is enabled by default and will automatically stop tracking forms that are:
+  - Removed from the DOM
+  - Hidden or not visible for more than 10 seconds
+  - When navigating to other pages
 
 ## 🔍 Monitoring Features
 

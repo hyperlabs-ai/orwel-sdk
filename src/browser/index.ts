@@ -1,4 +1,4 @@
-import { Orwel, Config, OrwelEvent } from "../types";
+import { Orwel, Config, OrwelEvent, FormOptions } from "../types";
 import { createLogger, generateUUID } from "../utils";
 import { startMonitoring } from "../monitoring";
 import { createStorage } from "./storage";
@@ -6,6 +6,7 @@ import { createVisitorManager } from "./visitor";
 import { createSessionManager } from "./session";
 import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
+import { createFormTracker } from "./form";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -73,6 +74,12 @@ export function createBrowserImplementation(): Orwel {
     setPendingUpdate: (isPending: boolean) => (sessionManager as any).setPendingUpdate(isPending),
     flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer()
   };
+  
+  // Crear el módulo de seguimiento de formularios
+  const formTracker = createFormTracker(
+    (code: string, properties: Record<string, any>) => orwel.track(code, properties),
+    logger
+  );
 
   const orwel: Orwel = {
     init: (opts: Config) => {
@@ -174,6 +181,21 @@ export function createBrowserImplementation(): Orwel {
     
     flush: async () => {
       return queueManager.flush();
+    },
+    
+    form: (formElement: HTMLFormElement, options?: FormOptions) => {
+      if (!formElement) {
+        logger.error("Cannot track form: no form element provided");
+        return { success: false };
+      }
+      
+      try {
+        formTracker.trackForm(formElement, options);
+        return { success: true };
+      } catch (error) {
+        logger.error("Error tracking form", { error });
+        return { success: false };
+      }
     }
   };
 

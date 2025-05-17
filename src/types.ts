@@ -6,6 +6,7 @@ export interface Orwel {
   session: (properties: Record<string, any>) => { success: boolean; sessionId: string };
   monitor: (options?: MonitorOptions) => void;
   flush: () => Promise<{ success: boolean; count: number }>;
+  form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean };
 }
 
 export interface Session {
@@ -44,6 +45,16 @@ export interface MonitorOptions {
   network?: boolean;
   memory?: boolean;
   webVitals?: boolean;
+}
+
+export interface FormOptions {
+  formId?: string;
+  trackFocus?: boolean;
+  trackInput?: boolean;
+  trackChange?: boolean;
+  trackSubmit?: boolean;
+  trackAbandon?: boolean;
+  submitCallback?: (result: { success: boolean; error?: Error }) => void;
 }
 
 // Internal interfaces
