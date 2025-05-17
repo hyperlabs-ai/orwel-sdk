@@ -1,5 +1,6 @@
 import { debounce } from "../utils";
 import { generateUUID, createLogger, sanitizeData } from "../utils";
+import { Session } from "../types";
 
 /**
  * Creates a session manager that handles session data and persistence
@@ -7,8 +8,8 @@ import { generateUUID, createLogger, sanitizeData } from "../utils";
 export function createSessionManager(
   // Dependencias externas requeridas
   storage: {
-    saveSession: (session: Record<string, any>) => void;
-    loadSession: () => { data: Record<string, any>; isNew: boolean };
+    saveSession: (session: Session) => void;
+    loadSession: () => { data: Session; isNew: boolean };
   },
   queue: {
     push: (event: any) => void;
@@ -18,13 +19,17 @@ export function createSessionManager(
   logger: ReturnType<typeof createLogger>
 ) {
   // Estado actual de la sesión
-  let session: Record<string, any> = { id: generateUUID() };
+  let session: Session = {
+    id: generateUUID(),
+    status: 'active',
+    startedAt: new Date().toISOString()
+  };
 
   // Flag para rastrear si hay un evento de sesión pendiente en la cola
   let pendingSessionUpdate = false;
 
   // Buffer para acumular datos de sesión antes de enviarlos
-  let sessionBuffer: Record<string, any> = {};
+  let sessionBuffer: Partial<Session> = {};
 
   // Cargar sesión desde almacenamiento
   const loadSession = () => {
@@ -32,15 +37,36 @@ export function createSessionManager(
 
     if (Object.keys(data).length > 0) {
       session = data;
-      logger.debug("Session loaded from storage", { id: session.id });
+      // Si la sesión anterior estaba cerrada, crear una nueva
+      if (session.status === 'closed') {
+        session = {
+          id: generateUUID(),
+          status: 'active',
+          startedAt: new Date().toISOString()
+        };
+        logger.info("Previous session was closed, creating new session", { id: session.id });
+      } else {
+        logger.debug("Session loaded from storage", { id: session.id });
+      }
     } else {
       session = {
         id: generateUUID(),
-        startedAt: Date.now(),
+        status: 'active',
+        startedAt: new Date().toISOString()
       };
-      saveSession();
       logger.info("New session created", { id: session.id });
     }
+
+    // Capturar información inicial de ubicación
+    session.location = {
+      path: window.location.pathname,
+      url: window.location.href,
+      hash: window.location.hash,
+      search: window.location.search,
+      hostname: window.location.hostname
+    };
+
+    saveSession();
 
     // Enviar evento de sesión al servidor
     queue.push({
@@ -69,8 +95,12 @@ export function createSessionManager(
         properties: Object.keys(sessionBuffer),
       });
 
-      // Actualizar sesión con datos acumulados
-      session = { ...session, ...sessionBuffer };
+      // Actualizar sesión con datos acumulados y timestamp
+      session = {
+        ...session,
+        ...sessionBuffer,
+        updatedAt: new Date().toISOString()
+      };
       saveSession();
 
       // Buscar y actualizar evento de sesión existente o añadir uno nuevo
@@ -83,7 +113,6 @@ export function createSessionManager(
       if (updated) {
         logger.debug("Updated existing session event in queue");
       } else {
-        // Solo añadir si no existe un evento de sesión
         queue.push({
           type: "session",
           isNewSession: false,
@@ -98,19 +127,28 @@ export function createSessionManager(
       // Limpiar el buffer
       sessionBuffer = {};
     }
-  }, 1000); // Debounce por 1 segundo para agrupar actualizaciones
+  }, 1000);
 
   // Actualizar datos de sesión
-  const updateSession = (properties: Record<string, any> = {}) => {
+  const updateSession = (properties: Partial<Session> = {}) => {
     logger.info("Updating session data", {
       properties: Object.keys(properties),
     });
 
-    // Añadir propiedades al buffer en lugar de directamente a la sesión
+    // Si estamos cerrando la sesión, asegurarnos de que tenga todos los campos necesarios
+    if (properties.status === 'closed') {
+      properties.finishedAt = properties.finishedAt || new Date().toISOString();
+    }
+
+    // Añadir propiedades al buffer
     sessionBuffer = { ...sessionBuffer, ...properties };
 
-    // Programar vaciado del buffer
-    flushSessionBuffer();
+    // Si es un cierre de sesión, forzar flush inmediato
+    if (properties.status === 'closed') {
+      flushSessionBuffer();
+    } else {
+      flushSessionBuffer();
+    }
 
     logger.success("Session data queued for update", { id: session.id });
     return { success: true, sessionId: session.id };

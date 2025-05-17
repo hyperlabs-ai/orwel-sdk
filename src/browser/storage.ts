@@ -1,4 +1,4 @@
-import { OrwelEvent, Visitor } from "../types";
+import { OrwelEvent, Visitor, Session } from "../types";
 import { createLogger } from "../utils";
 
 /**
@@ -57,22 +57,23 @@ export function createStorage(
   };
 
   // Cargar la sesión desde localStorage
-  const loadSession = (): { data: Record<string, any>; isNew: boolean } => {
+  const loadSession = (): { data: Session; isNew: boolean } => {
     try {
       const saved = localStorage.getItem(keys.SESSION);
       if (saved) {
+        const parsedSession = JSON.parse(saved) as Session;
         logger.debug("Session loaded from storage");
-        return { data: JSON.parse(saved), isNew: false };
+        return { data: parsedSession, isNew: false };
       }
     } catch (error) {
       logger.warning("Failed to load session from storage", error);
     }
     
-    return { data: {}, isNew: true };
+    return { data: {} as Session, isNew: true };
   };
 
   // Guardar la sesión en localStorage
-  const saveSession = (session: Record<string, any>): void => {
+  const saveSession = (session: Session): void => {
     try {
       localStorage.setItem(keys.SESSION, JSON.stringify(session));
       logger.debug("Session saved to storage", { id: session.id });

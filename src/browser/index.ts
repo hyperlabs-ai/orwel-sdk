@@ -95,11 +95,26 @@ export function createBrowserImplementation(): Orwel {
       sessionManager.loadSession();
       
       // Configurar event listeners
-      window.addEventListener("beforeunload", orwel.flush);
+      window.addEventListener("beforeunload", (event) => {
+        // Forzar actualización síncrona de la sesión antes de cerrar
+        sessionManager.updateSession({
+          finishedAt: new Date().toISOString(),
+          status: 'closed'
+        });
+        
+        // Forzar flush síncrono
+        const result = orwel.flush();
+        
+        // Asegurar que el navegador espere a que se complete
+        event.preventDefault();
+        event.returnValue = '';
+      });
+      
+      // Ya no marcamos la sesión como finalizada en visibilitychange
       window.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
           logger.debug("Page visibility changed to hidden, flushing queue");
-          orwel.flush();
+          orwel.flush();  // Solo enviamos los eventos pendientes
         }
       });
       
@@ -109,7 +124,7 @@ export function createBrowserImplementation(): Orwel {
         orwel.monitor();
       }
       
-      logger.success("Orwel SDK initialized successfully");
+      logger.success("Orwel SDK v1.0.15 initialized successfully");
     },
     
     identify: (traits: Record<string, any> = {}) => {
@@ -129,11 +144,13 @@ export function createBrowserImplementation(): Orwel {
         hostname: window.location.hostname
       };
       
-      queueManager.addEvent({ 
+      queueManager.addEvent({
         type: "track", 
         code,
         location: locationData,
-        event: { id: eventId, code, properties, source: "orwel-sdk" } 
+        properties,
+        event: { id: eventId, code, source: "orwel-sdk" } ,
+        timestamp: new Date().toISOString()
       });
       
       logger.success("Event tracked", { code, eventId });
@@ -165,3 +182,24 @@ export function createBrowserImplementation(): Orwel {
 
 // Crear una instancia para uso interno
 export const orwel: Orwel = createBrowserImplementation(); 
+
+interface Session {
+  id: string;
+  status: 'active' | 'closed';
+  startedAt: string;
+  updatedAt?: string;
+  finishedAt?: string;
+  location?: {
+    path: string;
+    url: string;
+    hash: string;
+    search: string;
+    hostname: string;
+  };
+  webVitals?: Record<string, any>;
+  performance?: Record<string, any>;
+  jsErrors?: Array<Record<string, any>>;
+  memory?: Record<string, any>;
+  networkRequests?: Array<Record<string, any>>;
+  customProperties?: Record<string, any>;
+} 

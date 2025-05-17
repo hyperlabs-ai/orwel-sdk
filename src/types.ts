@@ -8,6 +8,27 @@ export interface Orwel {
   flush: () => Promise<{ success: boolean; count: number }>;
 }
 
+export interface Session {
+  id: string;
+  status: 'active' | 'closed';
+  startedAt: string;
+  updatedAt?: string;
+  finishedAt?: string;
+  location?: {
+    path: string;
+    url: string;
+    hash: string;
+    search: string;
+    hostname: string;
+  };
+  webVitals?: Record<string, any>;
+  performance?: Record<string, any>;
+  jsErrors?: Array<Record<string, any>>;
+  memory?: Record<string, any>;
+  networkRequests?: Array<Record<string, any>>;
+  customProperties?: Record<string, any>;
+}
+
 export interface Config {
   apiKey: string;
   autoMonitor?: boolean;
