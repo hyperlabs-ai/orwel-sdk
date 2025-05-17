@@ -12,10 +12,49 @@ export function createStorage(
     SESSION: "__orwel_session__"
   }
 ) {
+  // Check if localStorage is actually available
+  const isStorageAvailable = () => {
+    try {
+      const test = '__storage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Memory fallback when localStorage is not available
+  const memoryStorage: Record<string, string> = {};
+
+  // Storage wrapper that handles fallback
+  const getItem = (key: string): string | null => {
+    try {
+      if (isStorageAvailable()) {
+        return localStorage.getItem(key);
+      }
+      return memoryStorage[key] || null;
+    } catch (e) {
+      return memoryStorage[key] || null;
+    }
+  };
+
+  const setItem = (key: string, value: string): void => {
+    try {
+      if (isStorageAvailable()) {
+        localStorage.setItem(key, value);
+      } else {
+        memoryStorage[key] = value;
+      }
+    } catch (e) {
+      memoryStorage[key] = value;
+    }
+  };
+
   // Cargar la cola desde localStorage
   const loadQueue = (): OrwelEvent[] => {
     try {
-      const saved = localStorage.getItem(keys.QUEUE);
+      const saved = getItem(keys.QUEUE);
       const events = saved ? JSON.parse(saved) : [];
       logger.debug("Queue loaded from storage", { count: events.length });
       return events;
@@ -28,7 +67,7 @@ export function createStorage(
   // Guardar la cola en localStorage
   const saveQueue = (queue: OrwelEvent[]): void => {
     try {
-      localStorage.setItem(keys.QUEUE, JSON.stringify(queue));
+      setItem(keys.QUEUE, JSON.stringify(queue));
       logger.debug("Queue saved to storage", { count: queue.length });
     } catch (error) {
       logger.error("Failed to save queue to storage", error);
@@ -38,7 +77,7 @@ export function createStorage(
   // Cargar el visitante desde localStorage
   const loadVisitor = (): Visitor => {
     try {
-      const saved = localStorage.getItem(keys.VISITOR);
+      const saved = getItem(keys.VISITOR);
       return saved ? JSON.parse(saved) : {};
     } catch (error) {
       logger.error("Failed to load visitor from storage", error);
@@ -49,7 +88,7 @@ export function createStorage(
   // Guardar el visitante en localStorage
   const saveVisitor = (visitor: Visitor): void => {
     try {
-      localStorage.setItem(keys.VISITOR, JSON.stringify(visitor));
+      setItem(keys.VISITOR, JSON.stringify(visitor));
       logger.debug("Visitor saved to storage", { id: visitor.id });
     } catch (error) {
       logger.error("Failed to save visitor to storage", error);
@@ -59,7 +98,7 @@ export function createStorage(
   // Cargar la sesión desde localStorage
   const loadSession = (): { data: Session; isNew: boolean } => {
     try {
-      const saved = localStorage.getItem(keys.SESSION);
+      const saved = getItem(keys.SESSION);
       if (saved) {
         const parsedSession = JSON.parse(saved) as Session;
         logger.debug("Session loaded from storage");
@@ -75,7 +114,7 @@ export function createStorage(
   // Guardar la sesión en localStorage
   const saveSession = (session: Session): void => {
     try {
-      localStorage.setItem(keys.SESSION, JSON.stringify(session));
+      setItem(keys.SESSION, JSON.stringify(session));
       logger.debug("Session saved to storage", { id: session.id });
     } catch (error) {
       logger.error("Failed to save session to storage", error);

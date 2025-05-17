@@ -50,26 +50,39 @@ export function createVisitorManager(
   const identify = (traits: Record<string, any> = {}) => {
     logger.info('Identifying visitor', traits);
     
-    // Collect browser info and merge with provided traits
-    const browserInfo = collectBrowserInfo();
-    // Only include browser info that isn't explicitly provided by the user
-    const mergedTraits = { ...browserInfo, ...traits };
-    
-    // Generate UUID if visitor doesn't have an ID
-    if (!visitor.id && !mergedTraits.id) {
-      mergedTraits.id = generateUUID();
-      logger.debug('Generated new visitor ID', { id: mergedTraits.id });
-    } else if (visitor.id && !mergedTraits.id) {
-      mergedTraits.id = visitor.id;
+    try {
+      // Collect browser info and merge with provided traits
+      const browserInfo = collectBrowserInfo();
+      // Only include browser info that isn't explicitly provided by the user
+      const mergedTraits = { ...browserInfo, ...traits };
+      
+      // Generate UUID if visitor doesn't have an ID
+      if (!visitor.id && !mergedTraits.id) {
+        mergedTraits.id = generateUUID();
+        logger.debug('Generated new visitor ID', { id: mergedTraits.id });
+      } else if (visitor.id && !mergedTraits.id) {
+        mergedTraits.id = visitor.id;
+      }
+      
+      visitor = { ...visitor, ...mergedTraits };
+      
+      // Try to save, but continue even if it fails
+      try {
+        saveVisitor();
+      } catch (error) {
+        logger.warning('Failed to persist visitor data', error);
+      }
+      
+      // Always queue the identify event
+      queue.push({ type: 'identify', traits: mergedTraits });
+      queue.save();
+      
+      logger.success('Visitor identified', { id: mergedTraits.id || visitor.id });
+      return { success: true, visitorId: mergedTraits.id || visitor.id || '' };
+    } catch (error) {
+      logger.error('Failed to identify visitor', error);
+      return { success: false, visitorId: visitor.id || '' };
     }
-    
-    visitor = { ...visitor, ...mergedTraits };
-    saveVisitor();
-    queue.push({ type: 'identify', traits: mergedTraits });
-    queue.save();
-    
-    logger.success('Visitor identified', { id: mergedTraits.id || visitor.id });
-    return { success: true, visitorId: mergedTraits.id || visitor.id || '' };
   };
 
   return {
