@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.16] - 2025-05-16
+
+### Added
+- Added storage availability check for better Safari mobile support
+- Implemented memory-based fallback storage for private browsing mode
+- Added robust error handling for storage operations
+- Added proper session lifecycle management with status tracking
+- Added session timestamps (startedAt, updatedAt, finishedAt)
+- Added TypeScript interfaces for better type safety in session handling
+
+### Fixed
+- Fixed visitor traits not being saved in Safari mobile private browsing
+- Improved storage reliability across all browsers and modes
+- Enhanced error recovery when localStorage is not available
+- Fixed session state management during page unload
+- Fixed synchronous session closure on page exit
+
+### Improved
+- Better error handling and logging for storage operations
+- More resilient visitor identification process
+- Graceful degradation when persistent storage is unavailable
+- Enhanced session tracking with proper lifecycle states
+- More robust session data persistence
+- Improved session state transitions (active → closed)
+
 ## [1.0.15] - 2025-05-15
 
 ### Refactored
