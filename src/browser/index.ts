@@ -99,7 +99,42 @@ export function createBrowserImplementation(): Orwel {
       // Inicializar en el orden correcto
       queueManager.loadQueue();
       visitorManager.loadVisitor();
-      sessionManager.loadSession();
+      
+      // Cargamos y creamos la sesión
+      const { session: sessionData, isNewSession } = sessionManager.loadSession();
+      
+      // Nos aseguramos de enviar primero el evento de sesión y esperar a que se complete
+      // antes de permitir otros eventos
+      if (isNewSession) {
+        logger.debug("New session detected, sending session event immediately");
+        
+        // Enviamos un evento de sesión directamente para asegurar que esté
+        // creado en el backend antes de enviar otros eventos
+        const sessionEvent = {
+          type: "session",
+          isNewSession: true,
+          sessionData: sessionManager.getSession(),
+          timestamp: new Date().toISOString()
+        };
+        
+        // Enviamos el evento directamente sin usar la cola
+        apiClient.send(sessionEvent)
+          .then(success => {
+            if (success) {
+              logger.success("Initial session event sent successfully");
+              // Ahora podemos comenzar a procesar la cola normalmente
+              // Especialmente útil si hay eventos guardados de sesiones anteriores
+              if (queueManager.getQueue().length > 0) {
+                logger.debug("Processing queued events after session creation");
+                queueManager.flush();
+              }
+            } else {
+              logger.warning("Initial session event failed, will retry with queue");
+              // Agregamos el evento a la cola para reintentar
+              queueManager.addEvent(sessionEvent);
+            }
+          });
+      }
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
@@ -109,12 +144,8 @@ export function createBrowserImplementation(): Orwel {
           status: 'closed'
         });
         
-        // Forzar flush síncrono
-        const result = orwel.flush();
-        
-        // Asegurar que el navegador espere a que se complete
-        event.preventDefault();
-        event.returnValue = '';
+        // Forzar flush síncrono pero sin bloquear la navegación
+        orwel.flush();
       });
       
       // Ya no marcamos la sesión como finalizada en visibilitychange
@@ -131,7 +162,7 @@ export function createBrowserImplementation(): Orwel {
         orwel.monitor();
       }
       
-      logger.success("Orwel SDK v1.0.15 initialized successfully");
+      logger.success("Orwel SDK v1.0.17 initialized successfully");
     },
     
     identify: (traits: Record<string, any> = {}) => {

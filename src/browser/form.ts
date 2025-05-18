@@ -385,32 +385,39 @@ export function createFormTracker(
 
     // 2. Use IntersectionObserver to detect when the form is no longer visible
     if ("IntersectionObserver" in window) {
-      const intersectionObserver = new IntersectionObserver((entries) => {
-        // Check if form is visible
-        const entry = entries[0];
+      const intersectionObserver = new IntersectionObserver(
+        (entries) => {
+          // Check if form is visible
+          const entry = entries[0];
 
-        // If form is not intersecting (not visible) for more than 10 seconds
-        if (!entry.isIntersecting) {
-          // We don't want to untrack immediately, so we'll wait a bit
-          const timeoutId = setTimeout(() => {
-            // Check if still tracked and still not visible
-            if (trackedForms.has(form) && !document.body.contains(form)) {
-              logger.debug("Form not visible for extended period, auto-untracking", {
-                formId: formData.options.formId || form.id || "unnamed_form",
-              });
-              detectAbandon(form, formData);
-              untrackForm(form);
-            }
-          }, 10000); // 10 seconds timeout
+          // If form is not intersecting (not visible) for more than 10 seconds
+          if (!entry.isIntersecting) {
+            // We don't want to untrack immediately, so we'll wait a bit
+            const timeoutId = setTimeout(() => {
+              // Check if still tracked and still not visible
+              if (trackedForms.has(form) && !document.body.contains(form)) {
+                logger.debug(
+                  "Form not visible for extended period, auto-untracking",
+                  {
+                    formId:
+                      formData.options.formId || form.id || "unnamed_form",
+                  }
+                );
+                detectAbandon(form, formData);
+                untrackForm(form);
+              }
+            }, 10000); // 10 seconds timeout
 
-          // Store timeout ID for cleanup
-          (formData as any).visibilityTimeoutId = timeoutId;
-        } else if ((formData as any).visibilityTimeoutId) {
-          // If form is visible again, clear the timeout
-          clearTimeout((formData as any).visibilityTimeoutId);
-          (formData as any).visibilityTimeoutId = null;
-        }
-      }, { threshold: 0.1 }); // 10% of the form must be visible
+            // Store timeout ID for cleanup
+            (formData as any).visibilityTimeoutId = timeoutId;
+          } else if ((formData as any).visibilityTimeoutId) {
+            // If form is visible again, clear the timeout
+            clearTimeout((formData as any).visibilityTimeoutId);
+            (formData as any).visibilityTimeoutId = null;
+          }
+        },
+        { threshold: 0.1 }
+      ); // 10% of the form must be visible
 
       intersectionObserver.observe(form);
 

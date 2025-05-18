@@ -34,6 +34,7 @@ export function createSessionManager(
   // Cargar sesión desde almacenamiento
   const loadSession = () => {
     const { data, isNew } = storage.loadSession();
+    let isNewSession = false;
 
     if (Object.keys(data).length > 0) {
       session = data;
@@ -45,6 +46,7 @@ export function createSessionManager(
           startedAt: new Date().toISOString()
         };
         logger.info("Previous session was closed, creating new session", { id: session.id });
+        isNewSession = true;
       } else {
         logger.debug("Session loaded from storage", { id: session.id });
       }
@@ -55,6 +57,7 @@ export function createSessionManager(
         startedAt: new Date().toISOString()
       };
       logger.info("New session created", { id: session.id });
+      isNewSession = true;
     }
 
     // Capturar información inicial de ubicación
@@ -71,11 +74,13 @@ export function createSessionManager(
     // Enviar evento de sesión al servidor
     queue.push({
       type: "session",
-      isNewSession: isNew || true,
+      isNewSession: isNew || isNewSession,
       sessionData: session,
     });
     pendingSessionUpdate = true;
     queue.save();
+    
+    return { session, isNewSession: isNew || isNewSession };
   };
 
   // Guardar sesión en almacenamiento
