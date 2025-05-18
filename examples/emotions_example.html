@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orwel SDK - Emotion Detection Example</title>
+  <!-- Script for handling SDK loading -->
+  <script>
+    function handleSDKLoadError() {
+      console.warn('UMD version failed to load, trying ES module...');
+      const script = document.createElement('script');
+      script.type = 'module';
+      script.src = '../dist/orwel.es.js';
+      script.onload = () => console.log('ES Module loaded successfully');
+      script.onerror = () => {
+        console.error('Both UMD and ES module failed to load');
+        document.getElementById('sdk-error').style.display = 'block';
+      };
+      document.head.appendChild(script);
+    }
+    
+    // Verificar que el SDK se cargó correctamente después de cargar la página
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(() => {
+        if (typeof window.orwel === 'undefined') {
+          console.error('Orwel SDK not loaded after timeout');
+          document.getElementById('sdk-error').style.display = 'block';
+        } else {
+          console.log('Orwel SDK loaded successfully:', window.orwel);
+        }
+      }, 1000);
+    });
+  </script>
+  <!-- Include Orwel SDK -->
+  <script src="../dist/orwel.umd.js" onerror="handleSDKLoadError()"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    .main-content {
+      flex: 1;
+      padding: 20px;
+      max-width: 800px;
+    }
+    
+    .sidebar {
+      width: 380px;
+      background-color: #f8f9fa;
+      padding: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    h1, h2, h3 {
+      color: #333;
+    }
+    
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      max-height: 200px;
+    }
+    
+    button {
+      padding: 10px 15px;
+      background: #4a6cf7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+    }
+    
+    .form-container {
+      background-color: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .rapid-click-area {
+      width: 200px;
+      height: 100px;
+      background-color: #e0e0e0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 15px 0;
+      cursor: pointer;
+    }
+    
+    .hover-area {
+      display: flex;
+      margin: 15px 0;
+      gap: 10px;
+    }
+    
+    .hover-box {
+      width: 80px;
+      height: 80px;
+      background-color: #e0e0e0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    .hover-box:hover {
+      background-color: #ccc;
+    }
+    
+    .cursor-tracking-area {
+      width: 100%;
+      height: 150px;
+      background-color: #f0f0f0;
+      margin: 15px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    #cursor-trail {
+      position: absolute;
+      pointer-events: none;
+    }
+    
+    #emotion-log {
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    
+    .log-entry {
+      margin-bottom: 8px;
+      padding: 8px;
+      border-left: 4px solid #4a6cf7;
+      font-size: 12px;
+      background-color: white;
+    }
+    
+    .log-entry.emotion {
+      border-left-color: #f7c04a;
+      background-color: #fff8e6;
+    }
+    
+    .score-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .score-item {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px;
+      background-color: white;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .progress {
+      height: 8px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      border-radius: 4px;
+    }
+    
+    .frustration .progress-bar { background-color: #f44336; }
+    .confusion .progress-bar { background-color: #ff9800; }
+    .engagement .progress-bar { background-color: #4caf50; }
+    .satisfaction .progress-bar { background-color: #2196f3; }
+    .urgency .progress-bar { background-color: #9c27b0; }
+    .indecision .progress-bar { background-color: #607d8b; }
+    
+    #sdk-error {
+      display: none;
+      background-color: #ffebee;
+      color: #b71c1c;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+      border-left: 4px solid #f44336;
+    }
+    
+    @media (max-width: 1080px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="main-content">
+      <h1>Orwel SDK - Emotion Detection Example</h1>
+      
+      <div id="sdk-error">
+        <h3>⚠️ Error: SDK No Cargado</h3>
+        <p>No se pudo cargar el Orwel SDK. Por favor, verifique:</p>
+        <ul>
+          <li>Que la build del SDK existe en la ruta <code>../dist/orwel.umd.js</code> o <code>../dist/orwel.es.js</code></li>
+          <li>Que no hay errores de CORS o restricciones del servidor</li>
+          <li>Que la importación del módulo es compatible con su navegador</li>
+        </ul>
+        <p>Verifique la consola del navegador para más detalles.</p>
+      </div>
+      
+      <p>This example demonstrates how Orwel SDK automatically detects user emotions through behavior analysis. Try the following interactions to trigger different emotions:</p>
+      
+      <div class="interactions">
+        <h3>Frustration Triggers:</h3>
+        <div class="rapid-click-area" id="rage-click-area">Click rapidly here to simulate rage clicks</div>
+        
+        <h3>Indecision Triggers:</h3>
+        <div class="hover-area">
+          <div class="hover-box" id="hover-box-1">Option 1</div>
+          <div class="hover-box" id="hover-box-2">Option 2</div>
+          <div class="hover-box" id="hover-box-3">Option 3</div>
+          <div class="hover-box" id="hover-box-4">Option 4</div>
+        </div>
+        <p>Hover back and forth between options to trigger indecision detection</p>
+        
+        <h3>Erratic Cursor Movement:</h3>
+        <div class="cursor-tracking-area" id="cursor-area">
+          <div id="cursor-trail"></div>
+          Move your cursor erratically in this area
+        </div>
+        
+        <h3>Rapid Scrolling:</h3>
+        <div style="height: 100px; overflow-y: scroll; background-color: #f0f0f0; padding: 10px;">
+          <div style="height: 500px;">
+            Scroll rapidly up and down in this area<br><br>
+            More content to scroll<br><br>
+            Keep scrolling<br><br>
+            Continue scrolling<br><br>
+            Scroll more<br><br>
+            Almost there<br><br>
+            Keep going
+          </div>
+        </div>
+        
+        <h3>Form Interaction:</h3>
+        <div class="form-container">
+          <form id="test-form">
+            <div>
+              <label for="username">Username:</label><br>
+              <input type="text" id="username" name="username">
+            </div>
+            <div style="margin-top: 10px;">
+              <label for="password">Password:</label><br>
+              <input type="password" id="password" name="password">
+            </div>
+            <button type="submit" style="margin-top: 15px;">Submit</button>
+          </form>
+        </div>
+        
+        <h3>Navigation Pattern:</h3>
+        <div>
+          <button id="page1-btn">Page 1</button>
+          <button id="page2-btn">Page 2</button>
+          <button id="page3-btn">Page 3</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="sidebar">
+      <h2>Emotion Monitor</h2>
+      <button id="check-scores">Check Current Scores</button>
+      
+      <h3>Emotion Scores</h3>
+      <div class="score-container">
+        <div class="score-item frustration">
+          <div>Frustration: <span id="frustration-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="frustration-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="score-item confusion">
+          <div>Confusion: <span id="confusion-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="confusion-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="score-item engagement">
+          <div>Engagement: <span id="engagement-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="engagement-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="score-item satisfaction">
+          <div>Satisfaction: <span id="satisfaction-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="satisfaction-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="score-item urgency">
+          <div>Urgency: <span id="urgency-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="urgency-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="score-item indecision">
+          <div>Indecision: <span id="indecision-score">0</span>%</div>
+          <div class="progress"><div class="progress-bar" id="indecision-bar" style="width: 0%"></div></div>
+        </div>
+      </div>
+      
+      <h3>Event Log</h3>
+      <div id="emotion-log"></div>
+      
+      <h3>Last Detected Emotion Payload</h3>
+      <pre id="emotion-payload">No emotion detected yet</pre>
+    </div>
+  </div>
+  
+  <script>
+    // Simulation of page changes without actual navigation
+    function simulatePageChange(pageNum) {
+      const contentArea = document.getElementById('simulated-content');
+      if (!contentArea) return;
+      
+      window.history.pushState({}, `Page ${pageNum}`, `?page=${pageNum}`);
+      contentArea.innerHTML = `<h3>Page ${pageNum} Content</h3><p>This is simulated content for page ${pageNum}.</p>`;
+    }
+    
+    // Log events and update UI
+    function logEvent(event, isEmotion = false) {
+      const logContainer = document.getElementById('emotion-log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${isEmotion ? 'emotion' : ''}`;
+      entry.textContent = typeof event === 'string' ? event : JSON.stringify(event);
+      logContainer.prepend(entry);
+      
+      // Keep only the last 20 entries
+      while (logContainer.children.length > 20) {
+        logContainer.removeChild(logContainer.lastChild);
+      }
+    }
+    
+    // Update score visualizations
+    function updateScores(scores) {
+      Object.keys(scores).forEach(emotion => {
+        const scoreElement = document.getElementById(`${emotion}-score`);
+        const barElement = document.getElementById(`${emotion}-bar`);
+        
+        if (scoreElement && barElement) {
+          const score = Math.round(scores[emotion].score);
+          scoreElement.textContent = score;
+          barElement.style.width = `${score}%`;
+        }
+      });
+    }
+    
+    // Force simulated emotions for demo purposes
+    function simulateEmotionTrigger(emotionName) {
+      // This is normally done internally by the SDK
+      const emotionEvent = {
+        type: "simulated_emotion_trigger",
+        timestamp: Date.now(),
+        data: { emotion: emotionName }
+      };
+      
+      // In a real scenario, the SDK would process these events automatically
+      logEvent(`Simulating ${emotionName} trigger`, false);
+      
+      // We'd typically access this through the SDK's emotion tracker
+      window.orwel._emotionTracker?.addGestureEvent(emotionEvent);
+    }
+    
+    // Handle rage clicks
+    let clickCount = 0;
+    let lastClickTime = 0;
+    document.getElementById('rage-click-area').addEventListener('click', function() {
+      const now = Date.now();
+      if (now - lastClickTime < 500) {
+        clickCount++;
+        if (clickCount >= 3) {
+          logEvent('Rage click pattern detected!');
+        }
+      } else {
+        clickCount = 1;
+      }
+      lastClickTime = now;
+    });
+    
+    // Navigation simulation
+    document.getElementById('page1-btn').addEventListener('click', () => {
+      simulatePageChange(1);
+      // Trigger a custom navigation event that the SDK can detect
+      const navEvent = new CustomEvent('orwel:navigation', {
+        detail: { path: '/page1', title: 'Page 1' }
+      });
+      document.dispatchEvent(navEvent);
+      logEvent('Navigated to Page 1');
+    });
+    
+    document.getElementById('page2-btn').addEventListener('click', () => {
+      simulatePageChange(2);
+      const navEvent = new CustomEvent('orwel:navigation', {
+        detail: { path: '/page2', title: 'Page 2' }
+      });
+      document.dispatchEvent(navEvent);
+      logEvent('Navigated to Page 2');
+    });
+    
+    document.getElementById('page3-btn').addEventListener('click', () => {
+      simulatePageChange(3);
+      const navEvent = new CustomEvent('orwel:navigation', {
+        detail: { path: '/page3', title: 'Page 3' }
+      });
+      document.dispatchEvent(navEvent);
+      logEvent('Navigated to Page 3');
+    });
+    
+    // Form handling
+    document.getElementById('test-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      logEvent('Form submitted');
+    });
+    
+    // Add focus/blur events to form fields
+    document.querySelectorAll('#test-form input').forEach(input => {
+      input.addEventListener('focus', function() {
+        logEvent(`Focus on ${this.name} field`);
+      });
+      
+      input.addEventListener('blur', function() {
+        logEvent(`Blur from ${this.name} field`);
+      });
+      
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+          logEvent(`Deletion in ${this.name} field`);
+        }
+      });
+    });
+    
+    document.getElementById('password').addEventListener('input', function(e) {
+      // Simulate frustration with passwords
+      if (e.target.value.length > 3 && Math.random() > 0.7) {
+        e.target.value = ''; // Occasionally clear the field to simulate mistakes
+        logEvent('Password cleared - simulating mistake');
+      }
+    });
+    
+    // Check current scores
+    document.getElementById('check-scores').addEventListener('click', function() {
+      try {
+        // Primero intentar acceder al tracker a través de nuestra variable global
+        if (window._emotionTrackerInstance) {
+          const state = window._emotionTrackerInstance.getState();
+          updateScores(state.scores);
+          logEvent('Updated emotion scores');
+          
+          if (state.lastDetection) {
+            document.getElementById('emotion-payload').textContent = 
+              JSON.stringify(state.lastDetection, null, 2);
+          }
+        } 
+        // Como fallback, intentar obtenerlo desde el objeto orwel
+        else if (window.orwel && window.orwel._emotionTracker) {
+          const state = window.orwel._emotionTracker.getState();
+          updateScores(state.scores);
+          logEvent('Updated emotion scores');
+          
+          if (state.lastDetection) {
+            document.getElementById('emotion-payload').textContent = 
+              JSON.stringify(state.lastDetection, null, 2);
+          }
+        } else {
+          console.error('Emotion tracker not available yet');
+          logEvent('Emotion tracker not available. Trying to reinitialize...');
+          
+          // Intentar reinicializar
+          if (typeof window.orwel !== 'undefined') {
+            logEvent('Attempting to access emotion tracker directly...');
+            
+            // Esperar un momento y volver a intentar
+            setTimeout(() => {
+              if (window.orwel._emotionTracker) {
+                window._emotionTrackerInstance = window.orwel._emotionTracker;
+                logEvent('Emotion tracker found!');
+                
+                // Intentar nuevamente
+                document.getElementById('check-scores').click();
+              } else {
+                logEvent('Cannot find emotion tracker. Try reloading the page.');
+                document.getElementById('sdk-error').style.display = 'block';
+              }
+            }, 500);
+          } else {
+            logEvent('SDK not found. Check console for errors.');
+          }
+        }
+      } catch (err) {
+        console.error('Error accessing emotion scores:', err);
+        logEvent('Error: ' + err.message);
+      }
+    });
+    
+    // Setup hover tracking for indecision detection
+    const hoverBoxes = document.querySelectorAll('.hover-box');
+    hoverBoxes.forEach(box => {
+      box.addEventListener('mouseover', function() {
+        logEvent(`Hover on ${this.textContent}`);
+      });
+      
+      box.addEventListener('mouseout', function() {
+        logEvent(`Hover off ${this.textContent}`);
+      });
+    });
+    
+    // Setup cursor trail for erratic movement visualization
+    const cursorArea = document.getElementById('cursor-area');
+    const cursorTrail = document.getElementById('cursor-trail');
+    const trailPoints = [];
+    const MAX_TRAIL_POINTS = 20;
+    
+    if (cursorArea && cursorTrail) {
+      cursorArea.addEventListener('mousemove', function(e) {
+        // Get position relative to the container
+        const rect = cursorArea.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Add point to trail
+        trailPoints.push({ x, y });
+        
+        // Keep trail at max length
+        if (trailPoints.length > MAX_TRAIL_POINTS) {
+          trailPoints.shift();
+        }
+        
+        // Draw trail
+        drawTrail();
+      });
+      
+      cursorArea.addEventListener('mouseout', function() {
+        // Clear trail when mouse leaves area
+        trailPoints.length = 0;
+        cursorTrail.innerHTML = '';
+      });
+    }
+    
+    function drawTrail() {
+      if (!cursorTrail) return;
+      cursorTrail.innerHTML = '';
+      
+      trailPoints.forEach((point, index) => {
+        const dot = document.createElement('div');
+        const size = Math.max(3, 8 * (index / MAX_TRAIL_POINTS));
+        const opacity = 0.3 * (index / MAX_TRAIL_POINTS);
+        
+        dot.style.width = `${size}px`;
+        dot.style.height = `${size}px`;
+        dot.style.borderRadius = '50%';
+        dot.style.backgroundColor = `rgba(74, 108, 247, ${opacity})`;
+        dot.style.position = 'absolute';
+        dot.style.left = `${point.x}px`;
+        dot.style.top = `${point.y}px`;
+        dot.style.transform = 'translate(-50%, -50%)';
+        
+        cursorTrail.appendChild(dot);
+      });
+    }
+    
+    // Initialize Orwel SDK
+    document.addEventListener('DOMContentLoaded', function() {
+      // Inicializar la UI primero
+      updateScores({
+        'frustration': { score: 0, triggers: [], confidence: 0 },
+        'confusion': { score: 0, triggers: [], confidence: 0 },
+        'engagement': { score: 0, triggers: [], confidence: 0 },
+        'satisfaction': { score: 0, triggers: [], confidence: 0 },
+        'urgency': { score: 0, triggers: [], confidence: 0 },
+        'indecision': { score: 0, triggers: [], confidence: 0 }
+      });
+      
+      // Variable global para el tracker
+      window._emotionTrackerInstance = null;
+      
+      // Retraso para asegurar que el SDK esté cargado
+      setTimeout(() => {
+        if (typeof window.orwel !== 'undefined') {
+          console.log('Initializing Orwel SDK...');
+          
+          try {
+            window.orwel.init({
+              apiKey: 'demo-key-123',
+              debug: true,
+              verbose: true,
+              autoMonitor: true,
+              // Expose the emotion tracker for demo purposes
+              onInit: function(sdk) {
+                console.log('SDK initialized, exposing emotion tracker');
+                // Guardar el tracker en nuestra variable global
+                window._emotionTrackerInstance = sdk._emotionTracker;
+                logEvent('Orwel SDK initialized successfully!');
+              },
+              // Listen for emotion events
+              emotions: {
+                enabled: true,
+                samplingInterval: 500,  // Sample more frequently for demo
+                detectionThreshold: 40  // Lower threshold for demo
+              }
+            });
+            
+            // Override the addEvent method to log events
+            const originalAddEvent = window.orwel._queueManager?.addEvent;
+            if (originalAddEvent) {
+              window.orwel._queueManager.addEvent = function(event) {
+                // Log all events for debugging
+                console.log('Event:', event);
+                
+                // Check if it's an emotion event and update the UI
+                if (event.type === 'emotion') {
+                  logEvent(`Emotion detected: ${event.emotion} (score: ${event.score}, confidence: ${event.confidence.toFixed(2)})`, true);
+                  document.getElementById('emotion-payload').textContent = JSON.stringify(event, null, 2);
+                }
+                return originalAddEvent.call(this, event);
+              };
+            }
+            
+            logEvent('Orwel SDK initialized with emotion detection');
+          } catch (err) {
+            console.error('Error initializing SDK:', err);
+            logEvent('Error initializing SDK: ' + err.message);
+            document.getElementById('sdk-error').style.display = 'block';
+          }
+        } else {
+          logEvent('Orwel SDK not found!');
+          console.error('Orwel SDK not loaded. Check the script path.');
+          document.getElementById('sdk-error').style.display = 'block';
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html> 

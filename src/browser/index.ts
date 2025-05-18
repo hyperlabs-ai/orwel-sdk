@@ -7,6 +7,7 @@ import { createSessionManager } from "./session";
 import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
+import { createEmotionTracker } from "./emotion";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -19,7 +20,7 @@ export function createBrowserImplementation(): Orwel {
 
   // Crear el administrador de almacenamiento
   const storage = createStorage(logger);
-  
+
   // Crear el cliente API con getters para acceder a la configuración actualizada
   const apiClient = createApiClient(
     () => config,
@@ -27,17 +28,17 @@ export function createBrowserImplementation(): Orwel {
     () => sessionManager.getSession(),
     logger
   );
-  
+
   // Crear el administrador de cola primero
   const queueManager = createQueueManager(
     {
       loadQueue: storage.loadQueue,
-      saveQueue: storage.saveQueue
+      saveQueue: storage.saveQueue,
     },
     apiClient,
     {
-      setPendingUpdate: (isPending: boolean) => {},  // Temporal, será reemplazado
-      flushSessionBuffer: () => {}  // Temporal, será reemplazado
+      setPendingUpdate: (isPending: boolean) => {}, // Temporal, será reemplazado
+      flushSessionBuffer: () => {}, // Temporal, será reemplazado
     },
     logger
   );
@@ -46,13 +47,13 @@ export function createBrowserImplementation(): Orwel {
   const sessionManager = createSessionManager(
     {
       saveSession: storage.saveSession,
-      loadSession: storage.loadSession
+      loadSession: storage.loadSession,
     },
     {
       push: (event: any) => queueManager.addEvent(event as OrwelEvent),
-      save: () => {},  // No es necesario guardar aquí, addEvent ya lo hace
-      findAndUpdateEvent: (type: string, data: any) => 
-        queueManager.findAndUpdateEvent(type, data as OrwelEvent)
+      save: () => {}, // No es necesario guardar aquí, addEvent ya lo hace
+      findAndUpdateEvent: (type: string, data: any) =>
+        queueManager.findAndUpdateEvent(type, data as OrwelEvent),
     },
     logger
   );
@@ -60,115 +61,131 @@ export function createBrowserImplementation(): Orwel {
   const visitorManager = createVisitorManager(
     {
       saveVisitor: storage.saveVisitor,
-      loadVisitor: storage.loadVisitor
+      loadVisitor: storage.loadVisitor,
     },
     {
       push: (event: any) => queueManager.addEvent(event as OrwelEvent),
-      save: () => {}  // No es necesario guardar aquí, addEvent ya lo hace
+      save: () => {}, // No es necesario guardar aquí, addEvent ya lo hace
     },
     logger
   );
 
   // Actualizar las referencias en el queue manager para resolver las dependencias circulares
   (queueManager as any).sessionManager = {
-    setPendingUpdate: (isPending: boolean) => (sessionManager as any).setPendingUpdate(isPending),
-    flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer()
+    setPendingUpdate: (isPending: boolean) =>
+      (sessionManager as any).setPendingUpdate(isPending),
+    flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer(),
   };
-  
+
   // Crear el módulo de seguimiento de formularios
   const formTracker = createFormTracker(
-    (code: string, properties: Record<string, any>) => orwel.track(code, properties),
+    (code: string, properties: Record<string, any>) =>
+      orwel.track(code, properties),
+    logger
+  );
+
+  // Crear el módulo de detección de emociones
+  const emotionTracker = createEmotionTracker(
+    {
+      addEvent: (event: OrwelEvent) => queueManager.addEvent(event),
+    },
     logger
   );
 
   const orwel: Orwel = {
     init: (opts: Config) => {
       config = opts;
-      
+
       // Reinicializar logger con la configuración de depuración
-      logger = createLogger({ 
-        debug: opts.debug || false, 
-        verbose: opts.verbose || false 
+      logger = createLogger({
+        debug: opts.debug || false,
+        verbose: opts.verbose || false,
       });
-      
+
       logger.info("Initializing Orwel SDK", {
         debug: opts.debug,
-        verbose: opts.verbose
+        verbose: opts.verbose,
       });
-      
+
       // Inicializar en el orden correcto
       queueManager.loadQueue();
       visitorManager.loadVisitor();
-      
+
       // Cargamos y creamos la sesión
-      const { session: sessionData, isNewSession } = sessionManager.loadSession();
-      
+      const { session: sessionData, isNewSession } =
+        sessionManager.loadSession();
+
       // Nos aseguramos de enviar primero el evento de sesión y esperar a que se complete
       // antes de permitir otros eventos
       if (isNewSession) {
         logger.debug("New session detected, sending session event immediately");
-        
+
         // Enviamos un evento de sesión directamente para asegurar que esté
         // creado en el backend antes de enviar otros eventos
         const sessionEvent = {
           type: "session",
           isNewSession: true,
           sessionData: sessionManager.getSession(),
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
-        
+
         // Enviamos el evento directamente sin usar la cola
-        apiClient.send(sessionEvent)
-          .then(success => {
-            if (success) {
-              logger.success("Initial session event sent successfully");
-              // Ahora podemos comenzar a procesar la cola normalmente
-              // Especialmente útil si hay eventos guardados de sesiones anteriores
-              if (queueManager.getQueue().length > 0) {
-                logger.debug("Processing queued events after session creation");
-                queueManager.flush();
-              }
-            } else {
-              logger.warning("Initial session event failed, will retry with queue");
-              // Agregamos el evento a la cola para reintentar
-              queueManager.addEvent(sessionEvent);
+        apiClient.send(sessionEvent).then((success) => {
+          if (success) {
+            logger.success("Initial session event sent successfully");
+            // Ahora podemos comenzar a procesar la cola normalmente
+            // Especialmente útil si hay eventos guardados de sesiones anteriores
+            if (queueManager.getQueue().length > 0) {
+              logger.debug("Processing queued events after session creation");
+              queueManager.flush();
             }
-          });
+          } else {
+            logger.warning(
+              "Initial session event failed, will retry with queue"
+            );
+            // Agregamos el evento a la cola para reintentar
+            queueManager.addEvent(sessionEvent);
+          }
+        });
       }
-      
+
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
         // Forzar actualización síncrona de la sesión antes de cerrar
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
-          status: 'closed'
+          status: "closed",
         });
-        
+
         // Forzar flush síncrono pero sin bloquear la navegación
         orwel.flush();
       });
-      
+
       // Ya no marcamos la sesión como finalizada en visibilitychange
       window.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
           logger.debug("Page visibility changed to hidden, flushing queue");
-          orwel.flush();  // Solo enviamos los eventos pendientes
+          orwel.flush(); // Solo enviamos los eventos pendientes
         }
       });
-      
+
+      // Inicializar detección de emociones
+      const emotionOptions = opts.emotions === false ? { enabled: false } : {};
+      emotionTracker.init(emotionOptions);
+
       // Auto-monitor si está habilitado en la configuración
       if (opts.autoMonitor) {
         logger.info("Auto monitoring enabled, starting monitors");
         orwel.monitor();
       }
-      
-      logger.success("Orwel SDK v1.0.17 initialized successfully");
+
+      logger.success("Orwel SDK v1.0.18 initialized successfully");
     },
-    
+
     identify: (traits: Record<string, any> = {}) => {
       return visitorManager.identify(traits);
     },
-    
+
     track: (code: string, properties = {}) => {
       const eventId = generateUUID();
       logger.info("Tracking event", { code, eventId });
@@ -179,26 +196,26 @@ export function createBrowserImplementation(): Orwel {
         url: window.location.href,
         hash: window.location.hash,
         search: window.location.search,
-        hostname: window.location.hostname
+        hostname: window.location.hostname,
       };
-      
+
       queueManager.addEvent({
-        type: "track", 
+        type: "track",
         code,
         location: locationData,
         properties,
-        event: { id: eventId, code, source: "orwel-sdk" } ,
-        timestamp: new Date().toISOString()
+        event: { id: eventId, code, source: "orwel-sdk" },
+        timestamp: new Date().toISOString(),
       });
-      
+
       logger.success("Event tracked", { code, eventId });
       return { success: true, eventId };
     },
-    
+
     session: (properties: Record<string, any> = {}) => {
       return sessionManager.updateSession(properties);
     },
-    
+
     monitor: (options = {}) => {
       if (!isMonitoring) {
         startMonitoring(orwel, options);
@@ -209,17 +226,17 @@ export function createBrowserImplementation(): Orwel {
       }
       return { success: true };
     },
-    
+
     flush: async () => {
       return queueManager.flush();
     },
-    
+
     form: (formElement: HTMLFormElement, options?: FormOptions) => {
       if (!formElement) {
         logger.error("Cannot track form: no form element provided");
         return { success: false };
       }
-      
+
       try {
         formTracker.trackForm(formElement, options);
         return { success: true };
@@ -227,18 +244,18 @@ export function createBrowserImplementation(): Orwel {
         logger.error("Error tracking form", { error });
         return { success: false };
       }
-    }
+    },
   };
 
   return orwel;
 }
 
 // Crear una instancia para uso interno
-export const orwel: Orwel = createBrowserImplementation(); 
+export const orwel: Orwel = createBrowserImplementation();
 
 interface Session {
   id: string;
-  status: 'active' | 'closed';
+  status: "active" | "closed";
   startedAt: string;
   updatedAt?: string;
   finishedAt?: string;
@@ -255,4 +272,4 @@ interface Session {
   memory?: Record<string, any>;
   networkRequests?: Array<Record<string, any>>;
   customProperties?: Record<string, any>;
-} 
+}
