@@ -1,4 +1,4 @@
-import { Orwel } from '../types';
+import { Orwel, MonitorOptions } from '../types';
 import { createLogger } from '../utils';
 import { setupErrorMonitoring } from './errors';
 import { setupConsoleMonitoring } from './console';
@@ -21,7 +21,7 @@ const safeMonitoringSetup = (
 
 export const startMonitoring = (
   orwel: Orwel,
-  options: Record<string, any> = {}
+  options: MonitorOptions = {}
 ): void => {
   const logger = createLogger({ debug: false });
   

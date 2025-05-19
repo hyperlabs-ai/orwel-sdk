@@ -83,27 +83,27 @@ export const createLogger = (config: { debug?: boolean; verbose?: boolean }) => 
   const logger = {
     success: (message: string, data?: any) => {
       if (isDebug) {
-        console.log(`${prefix} ${logLevels.success.emoji} ${message}`, data ? data : '');
+        console.log(`${prefix} ${logLevels.success.emoji} ${message}`, data);
       }
     },
     info: (message: string, data?: any) => {
       if (isDebug) {
-        console.info(`${prefix} ${logLevels.info.emoji} ${message}`, data ? data : '');
+        console.info(`${prefix} ${logLevels.info.emoji} ${message}`, data);
       }
     },
     warning: (message: string, data?: any) => {
       if (isDebug) {
-        console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`, data ? data : '');
+        console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`, data);
       }
     },
     error: (message: string, data?: any) => {
       if (isDebug) {
-        console.error(`${prefix} ${logLevels.error.emoji} ${message}`, data ? data : '');
+        console.error(`${prefix} ${logLevels.error.emoji} ${message}`, data);
       }
     },
     debug: (message: string, data?: any) => {
       if (isDebug && isVerbose) {
-        console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`, data ? data : '');
+        console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`, data);
       }
     },
   };
@@ -318,9 +318,11 @@ export const serializePerformanceEntry = (entry: PerformanceEntry): any => {
   
   // Copy only serializable properties
   for (const prop in entry) {
-    const value = (entry as any)[prop];
-    if (typeof value !== 'function' && typeof value !== 'object') {
-      result[prop] = value;
+    if (Object.prototype.hasOwnProperty.call(entry, prop)) {
+      const value = (entry as any)[prop];
+      if (typeof value !== 'function' && typeof value !== 'object') {
+        result[prop] = value;
+      }
     }
   }
   

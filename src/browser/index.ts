@@ -49,9 +49,9 @@ export function createBrowserImplementation(): Orwel {
       loadSession: storage.loadSession
     },
     {
-      push: (event: any) => queueManager.addEvent(event as OrwelEvent),
+      push: (event: OrwelEvent) => queueManager.addEvent(event),
       save: () => {},  // No es necesario guardar aquí, addEvent ya lo hace
-      findAndUpdateEvent: (type: string, data: any) => 
+      findAndUpdateEvent: (type: string, data: Record<string, any>) => 
         queueManager.findAndUpdateEvent(type, data as OrwelEvent)
     },
     logger
@@ -63,7 +63,7 @@ export function createBrowserImplementation(): Orwel {
       loadVisitor: storage.loadVisitor
     },
     {
-      push: (event: any) => queueManager.addEvent(event as OrwelEvent),
+      push: (event: OrwelEvent) => queueManager.addEvent(event),
       save: () => {}  // No es necesario guardar aquí, addEvent ya lo hace
     },
     logger
@@ -77,7 +77,7 @@ export function createBrowserImplementation(): Orwel {
   
   // Crear el módulo de seguimiento de formularios
   const formTracker = createFormTracker(
-    (code: string, properties: Record<string, any>) => orwel.track(code, properties),
+    (code: string, properties: Record<string, unknown>) => orwel.track(code, properties),
     logger
   );
 
@@ -138,18 +138,39 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
-        // Update session status without forcing a sync flush
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
           status: 'closed'
-        }, true); // Pass true to indicate this is a final update
+        }, true); 
         
-        // Use sendBeacon for final flush if available
-        if (navigator.sendBeacon) {
-          const pendingEvents = queueManager.getQueue();
-          if (pendingEvents.length > 0) {
-            const beaconUrl = `${config.apiUrl}/events`;
-            navigator.sendBeacon(beaconUrl, JSON.stringify(pendingEvents));
+        const pendingEvents = queueManager.getQueue();
+        if (pendingEvents.length > 0) {
+          const hardcodedApiUrl = "https://api.orwel.io/ingest"; // Use the hardcoded URL from api.ts
+          
+          if (navigator.sendBeacon) {
+            try {
+              navigator.sendBeacon(hardcodedApiUrl, JSON.stringify(pendingEvents));
+              logger.debug("Events sent via sendBeacon on beforeunload");
+            } catch (e) {
+              logger.error("Error using sendBeacon", { error: e });
+            }
+          } else {
+            logger.debug("sendBeacon not available, using sync XHR for beforeunload flush");
+            try {
+              const xhr = new XMLHttpRequest();
+              xhr.open("POST", hardcodedApiUrl, false); 
+              xhr.setRequestHeader("Content-Type", "application/json");
+              // Config is still needed for apiKey
+              if (config && config.apiKey) {
+                xhr.setRequestHeader("X-Orwel-Key", config.apiKey);
+              } else {
+                logger.warning("Cannot send X-Orwel-Key header for sync XHR: apiKey or config missing");
+              }
+              xhr.send(JSON.stringify(pendingEvents));
+              logger.debug("Events sent via sync XHR on beforeunload");
+            } catch (e) {
+              logger.error("Error using sync XHR for beforeunload flush", { error: e });
+            }
           }
         }
       });
@@ -166,7 +187,7 @@ export function createBrowserImplementation(): Orwel {
         orwel.monitor();
       }
       
-      logger.success("Orwel SDK v1.0.17 initialized successfully");
+      logger.success("Orwel SDK v1.0.18 initialized successfully");
     },
     
     identify: (traits: Record<string, any> = {}) => {

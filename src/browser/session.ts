@@ -33,12 +33,11 @@ export function createSessionManager(
 
   // Cargar sesión desde almacenamiento
   const loadSession = () => {
-    const { data, isNew } = storage.loadSession();
-    let isNewSession = false;
+    const { data, isNew: isNewFromStorage } = storage.loadSession();
+    let isNewSessionInstance = false;
 
     if (Object.keys(data).length > 0) {
       session = data;
-      // Si la sesión anterior estaba cerrada, crear una nueva
       if (session.status === 'closed') {
         session = {
           id: generateUUID(),
@@ -46,9 +45,16 @@ export function createSessionManager(
           startedAt: new Date().toISOString()
         };
         logger.info("Previous session was closed, creating new session", { id: session.id });
-        isNewSession = true;
+        isNewSessionInstance = true;
       } else {
         logger.debug("Session loaded from storage", { id: session.id });
+        queue.push({
+          type: "session",
+          isNewSession: false,
+          sessionData: { ...session },
+        });
+        pendingSessionUpdate = true;
+        queue.save();
       }
     } else {
       session = {
@@ -57,30 +63,22 @@ export function createSessionManager(
         startedAt: new Date().toISOString()
       };
       logger.info("New session created", { id: session.id });
-      isNewSession = true;
+      isNewSessionInstance = true;
     }
 
-    // Capturar información inicial de ubicación
-    session.location = {
-      path: window.location.pathname,
-      url: window.location.href,
-      hash: window.location.hash,
-      search: window.location.search,
-      hostname: window.location.hostname
-    };
+    if (isNewSessionInstance || !session.location) {
+      session.location = {
+        path: window.location.pathname,
+        url: window.location.href,
+        hash: window.location.hash,
+        search: window.location.search,
+        hostname: window.location.hostname
+      };
+    }
 
     saveSession();
-
-    // Enviar evento de sesión al servidor
-    queue.push({
-      type: "session",
-      isNewSession: isNew || isNewSession,
-      sessionData: session,
-    });
-    pendingSessionUpdate = true;
-    queue.save();
     
-    return { session, isNewSession: isNew || isNewSession };
+    return { session, isNewSession: isNewSessionInstance || isNewFromStorage };
   };
 
   // Guardar sesión en almacenamiento

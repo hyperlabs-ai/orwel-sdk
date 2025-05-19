@@ -1,10 +1,23 @@
 import { Orwel } from '../types';
 
+interface JSErrorInfo {
+  message: string;
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+  stack?: string;
+}
+
+interface PromiseErrorInfo {
+  message: string;
+  stack?: string;
+}
+
 export const setupErrorMonitoring = (orwel: Orwel): void => {
   // Store error data to batch them
-  let jsErrors: any[] = [];
-  let promiseErrors: any[] = [];
-  let errorTimeout: any = null;
+  let jsErrors: JSErrorInfo[] = [];
+  let promiseErrors: PromiseErrorInfo[] = [];
+  let errorTimeout: ReturnType<typeof setTimeout> | null = null;
   
   // Function to flush the batched error events
   const flushErrorEvents = () => {

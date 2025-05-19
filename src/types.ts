@@ -4,7 +4,7 @@ export interface Orwel {
   identify: (traits?: Record<string, any>) => { success: boolean; visitorId: string };
   track: (code: string, properties?: Record<string, any>) => { success: boolean; eventId: string };
   session: (properties?: Record<string, any>, isFinalUpdate?: boolean) => { success: boolean; sessionId: string };
-  monitor: (options?: Record<string, any>) => { success: boolean };
+  monitor: (options?: MonitorOptions) => { success: boolean };
   flush: () => Promise<{ success: boolean; count: number }>;
   form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean };
 }

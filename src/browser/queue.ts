@@ -109,14 +109,18 @@ export function createQueueManager(
 
   // Vaciar (flush) y enviar todos los eventos en la cola
   const flush = async () => {
-    // Asegurar que cualquier actualización de sesión pendiente se procese
     sessionManager.flushSessionBuffer();
     
     logger.debug("Flushing event queue", { count: queue.length });
     let sentCount = 0;
     
-    while (queue.length > 0 && checkCircuitBreaker()) {
+    const initialQueueLength = queue.length; // To avoid infinite loop if api.send is always false
+    let processedInLoop = 0;
+
+    while (queue.length > 0 && checkCircuitBreaker() && processedInLoop < initialQueueLength * (MAX_FAILURES + 1)) {
       const evt = queue.shift();
+      processedInLoop++;
+
       if (evt) {
         const result = await api.send(evt);
         if (result) {
@@ -124,41 +128,35 @@ export function createQueueManager(
           if (evt.type === "session") {
             sessionManager.setPendingUpdate(false);
           }
-          // Reset failure count on success
-          failureCount = 0;
-        } else {
-          // Update circuit breaker state
+          failureCount = 0; // Reset failure count on success
+        } else { // Event send failed
           failureCount++;
           lastFailureTime = Date.now();
 
-          // Special handling for session events - don't requeue if failed
-          if (evt.type === "session") {
-            logger.error("Session event failed to send - will not retry");
-            continue;
-          }
-          
-          // Requeue other failed events if retry count is not exceeded
           if (!evt.__retryCount) evt.__retryCount = 0;
-          
-          if (evt.__retryCount < 3) {
+
+          if (evt.__retryCount < MAX_FAILURES) {
             evt.__retryCount++;
-            queue.push(evt);
-            logger.debug("Requeuing event for retry", { 
-              type: evt.type, 
-              retry: evt.__retryCount 
-            });
+            if (evt.type === "session") {
+              queue.unshift(evt); // Re-queue session events at the FRONT
+              logger.debug("Requeuing session event at front for retry", { retry: evt.__retryCount, sessionId: (evt as any).sessionData?.id });
+            } else {
+              queue.push(evt);    // Re-queue other events at the END
+              logger.debug("Requeuing event at end for retry", { type: evt.type, retry: evt.__retryCount, eventId: (evt as any).event?.id });
+            }
           } else {
-            logger.warning("Dropping event after max retries", { type: evt.type });
+            logger.warning("Dropping event after max retries", { type: evt.type, eventId: (evt as any).event?.id, sessionId: (evt as any).sessionData?.id });
           }
         }
       }
 
-      // If circuit breaker is tripped, stop processing
       if (!checkCircuitBreaker()) {
         logger.warning("Circuit breaker tripped - pausing event processing", {
           failureCount,
           remainingEvents: queue.length
         });
+        // Events that were shifted but not processed due to circuit breaker
+        // are already out of the queue. If they were re-added, they are in.
         break;
       }
     }
