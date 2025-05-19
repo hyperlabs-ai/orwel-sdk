@@ -120,13 +120,12 @@ export function createBrowserImplementation(): Orwel {
       if (isNewSession) {
         logger.debug("New session detected, sending session event immediately");
 
-        // Enviamos un evento de sesión directamente para asegurar que esté
-        // creado en el backend antes de enviar otros eventos
         const sessionEvent = {
           type: "session",
           isNewSession: true,
           sessionData: sessionManager.getSession(),
           timestamp: new Date().toISOString(),
+          __isInitialSession: true // Marcador para identificar el evento inicial
         };
 
         // Enviamos el evento directamente sin usar la cola
@@ -134,17 +133,18 @@ export function createBrowserImplementation(): Orwel {
           if (success) {
             logger.success("Initial session event sent successfully");
             // Ahora podemos comenzar a procesar la cola normalmente
-            // Especialmente útil si hay eventos guardados de sesiones anteriores
             if (queueManager.getQueue().length > 0) {
               logger.debug("Processing queued events after session creation");
               queueManager.flush();
             }
           } else {
-            logger.warning(
-              "Initial session event failed, will retry with queue"
-            );
-            // Agregamos el evento a la cola para reintentar
-            queueManager.addEvent(sessionEvent);
+            logger.warning("Initial session event failed, will retry with queue");
+            // Verificar si ya existe un evento de sesión en la cola
+            const hasSessionEvent = queueManager.findAndUpdateEvent("session", sessionEvent);
+            if (!hasSessionEvent) {
+              // Solo agregamos si no existe
+              queueManager.addEvent(sessionEvent);
+            }
           }
         });
       }

@@ -37,11 +37,24 @@ export interface EmotionDetectionResult {
   timestamp: string;
 }
 
+export interface PerformanceMetrics {
+  processedEvents: number;
+  lastProcessingTime: number;
+  averageProcessingTime: number;
+  peakMemoryUsage: number;
+  eventRate: number;
+  dropRate: number;
+  lastGC?: number;
+}
+
 export interface EmotionState {
   scores: Record<EmotionType, EmotionScore>;
   recentIndicators: IndicatorResult[];
   lastDetection?: EmotionDetectionResult;
+  metrics: PerformanceMetrics;
 }
+
+export type PerformanceMode = 'low' | 'medium' | 'high' | 'adaptive';
 
 export interface EmotionOptions {
   enabled?: boolean;               // Habilitar/deshabilitar detección de emociones
@@ -50,12 +63,30 @@ export interface EmotionOptions {
   detectionCooldown?: number;      // Tiempo en ms entre detecciones de la misma emoción
   samplingInterval?: number;       // Intervalo de muestreo en ms
   historyLimit?: number;           // Número máximo de indicadores en historial
+  maxGestureEvents?: number;       // Número máximo de eventos de gestos en memoria
+  performanceMode?: PerformanceMode;
+  securityOptions?: {
+    maxEventsPerSecond?: number;
+    sanitizationLevel?: 'basic' | 'strict';
+    enableRateLimiting?: boolean;
+    maxPayloadSize?: number;
+  };
 }
 
 export interface GestureEvent {
   type: string;
   timestamp: number;
   data: Record<string, any>;
+  metadata?: {
+    source: string;
+    sessionId?: string;
+    userId?: string;
+    deviceInfo?: {
+      type: string;
+      os: string;
+      browser: string;
+    };
+  };
 }
 
 export interface GestureCollector {

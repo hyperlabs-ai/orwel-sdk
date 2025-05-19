@@ -8,119 +8,114 @@ export function createKeyboardTracker(
   onEvent: (event: GestureEvent) => void,
   logger: ReturnType<typeof createLogger>
 ): GestureCollector {
-  // Estado para tracking
+  // Configuración
+  const MAX_HISTORY_SIZE = 50;
+  const PATTERN_CHECK_INTERVAL = 2000;
+  const MIN_BACKSPACE_SEQUENCE = 5;
+  
+  // Estado para tracking con límite de tamaño
+  let keyPressHistory: Array<{
+    key: string;
+    timestamp: number;
+    target?: string;
+  }> = [];
   let isTracking = false;
-  let keyPressHistory: { key: string; timestamp: number; }[] = [];
-  const keysDown = new Set<string>();
-  let lastTypingTime = 0;
-  
-  // Función para manejar teclas presionadas
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const now = Date.now();
-    const target = e.target as HTMLElement;
+  let patternInterval: number | null = null;
+
+  // Sanitizar datos de evento antes de almacenar
+  const sanitizeEventData = (key: string, target?: Element): { key: string; target?: string } => {
+    // Limitar longitud de strings y eliminar caracteres especiales
+    const sanitizedKey = key.slice(0, 50).replace(/[^\w\s-]/g, '');
     
-    // Ignorar teclas modificadoras solas
-    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
-      return;
+    // Solo guardar id o tipo del elemento, no la referencia completa
+    let sanitizedTarget: string | undefined;
+    if (target instanceof Element) {
+      sanitizedTarget = target.id || target.tagName || undefined;
+      if (sanitizedTarget) {
+        sanitizedTarget = sanitizedTarget.slice(0, 50).replace(/[^\w\s-]/g, '');
+      }
     }
-    
-    // Registrar la tecla como presionada
-    keysDown.add(e.key);
-    
-    // Obtener información del elemento
-    const targetId = target?.id || '';
-    const targetTag = target?.tagName?.toLowerCase() || '';
-    const isInputField = 
-      targetTag === 'input' || 
-      targetTag === 'textarea' || 
-      target?.hasAttribute('contenteditable');
-    
-    // Crear y enviar el evento
-    onEvent({
-      type: 'keydown',
-      timestamp: now,
-      data: {
-        key: e.key,
-        isTyping: isInputField,
-        target: targetId || targetTag,
-        targetType: targetTag,
-        modifiers: {
-          ctrl: e.ctrlKey,
-          alt: e.altKey,
-          shift: e.shiftKey,
-          meta: e.metaKey
-        }
-      }
-    });
-    
-    // Si está escribiendo en un campo, rastrear para análisis de patrón de escritura
-    if (isInputField) {
-      keyPressHistory.push({ key: e.key, timestamp: now });
-      
-      // Mantener solo los últimos 50 eventos
-      if (keyPressHistory.length > 50) {
-        keyPressHistory.shift();
-      }
-      
-      // Analizar pausas en la escritura
-      if (lastTypingTime > 0) {
-        const timeSinceLastType = now - lastTypingTime;
-        
-        // Detectar pausa significativa (más de 2 segundos)
-        if (timeSinceLastType > 2000) {
-          onEvent({
-            type: 'typing_pause',
-            timestamp: now,
-            data: {
-              pauseDuration: timeSinceLastType,
-              target: targetId || targetTag,
-              targetType: targetTag
-            }
-          });
-        }
-      }
-      
-      lastTypingTime = now;
-    }
+
+    return { key: sanitizedKey, target: sanitizedTarget };
   };
-  
-  // Función para manejar teclas liberadas
-  const handleKeyUp = (e: KeyboardEvent) => {
-    // Eliminar la tecla de las presionadas
-    keysDown.delete(e.key);
-  };
-  
-  // Detectar patrones de escritura (borrado repetido, etc)
-  const detectKeyboardPatterns = () => {
-    // Verificar si hay suficientes eventos para análisis
-    if (keyPressHistory.length < 5) return;
-    
-    // Contar retrocesos consecutivos
-    let backspaceCount = 0;
-    let maxConsecutiveBackspace = 0;
-    
-    for (let i = 0; i < keyPressHistory.length; i++) {
-      if (keyPressHistory[i].key === 'Backspace') {
-        backspaceCount++;
-        maxConsecutiveBackspace = Math.max(maxConsecutiveBackspace, backspaceCount);
-      } else {
-        backspaceCount = 0;
-      }
-    }
-    
-    // Si hay muchos retrocesos consecutivos, enviar evento de frustración
-    if (maxConsecutiveBackspace >= 5) {
-      onEvent({
-        type: 'form_rage',
+
+  // Manejar eventos de teclado
+  const handleKeyDown = (event: KeyboardEvent) => {
+    try {
+      const { key, target } = sanitizeEventData(event.key, event.target as Element);
+      
+      // Añadir al historial con límite de tamaño
+      keyPressHistory.push({ 
+        key, 
         timestamp: Date.now(),
-        data: {
-          backspaceCount: maxConsecutiveBackspace,
-          pattern: 'repeated_backspace'
-        }
+        target 
       });
       
-      // Limpiar historial para no detectar el mismo patrón repetidamente
-      keyPressHistory = [];
+      // Mantener tamaño máximo del historial
+      if (keyPressHistory.length > MAX_HISTORY_SIZE) {
+        keyPressHistory.shift();
+      }
+
+      // Enviar evento de tecla
+      onEvent({
+        type: 'keydown',
+        timestamp: Date.now(),
+        data: {
+          key,
+          target,
+          isModifier: event.ctrlKey || event.altKey || event.metaKey,
+          isRepeat: event.repeat
+        }
+      });
+    } catch (error) {
+      logger.error("Error handling keydown event", { error });
+    }
+  };
+
+  // Detectar patrones de escritura (borrado repetido, etc)
+  const detectKeyboardPatterns = () => {
+    try {
+      // Verificar si hay suficientes eventos para análisis
+      if (keyPressHistory.length < MIN_BACKSPACE_SEQUENCE) return;
+      
+      // Limpiar eventos antiguos (más de 30 segundos)
+      const now = Date.now();
+      keyPressHistory = keyPressHistory.filter(
+        event => now - event.timestamp < 30000
+      );
+      
+      // Contar retrocesos consecutivos
+      let backspaceCount = 0;
+      let maxConsecutiveBackspace = 0;
+      let lastTarget: string | undefined;
+      
+      for (const event of keyPressHistory) {
+        if (event.key === 'Backspace' && event.target === lastTarget) {
+          backspaceCount++;
+          maxConsecutiveBackspace = Math.max(maxConsecutiveBackspace, backspaceCount);
+        } else {
+          backspaceCount = 0;
+        }
+        lastTarget = event.target;
+      }
+      
+      // Si hay muchos retrocesos consecutivos, enviar evento de frustración
+      if (maxConsecutiveBackspace >= MIN_BACKSPACE_SEQUENCE) {
+        onEvent({
+          type: 'form_rage',
+          timestamp: now,
+          data: {
+            backspaceCount: maxConsecutiveBackspace,
+            pattern: 'repeated_backspace',
+            target: lastTarget
+          }
+        });
+        
+        // Limpiar historial para no detectar el mismo patrón repetidamente
+        keyPressHistory = [];
+      }
+    } catch (error) {
+      logger.error("Error detecting keyboard patterns", { error });
     }
   };
   
@@ -131,44 +126,37 @@ export function createKeyboardTracker(
     try {
       // Añadir event listeners
       window.addEventListener('keydown', handleKeyDown);
-      window.addEventListener('keyup', handleKeyUp);
       
       // Intervalo para detección periódica de patrones
-      const patternInterval = setInterval(detectKeyboardPatterns, 2000);
+      patternInterval = window.setInterval(detectKeyboardPatterns, PATTERN_CHECK_INTERVAL);
       
       isTracking = true;
       logger.debug("Keyboard tracker initialized");
-      
-      // Asegurarse de limpiar el intervalo al destruir
-      (window as any).__orwelKeyboardPatternInterval = patternInterval;
     } catch (error) {
       logger.error("Failed to initialize keyboard tracker", { error });
+      destroy(); // Limpiar en caso de error
     }
   };
-  
-  // Detener el tracking
+
+  // Limpiar recursos
   const destroy = () => {
-    if (!isTracking) return;
-    
     try {
-      // Eliminar event listeners
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
       
-      // Limpiar intervalo
-      const patternInterval = (window as any).__orwelKeyboardPatternInterval;
-      if (patternInterval) {
-        clearInterval(patternInterval);
-        delete (window as any).__orwelKeyboardPatternInterval;
+      if (patternInterval !== null) {
+        window.clearInterval(patternInterval);
+        patternInterval = null;
       }
       
+      keyPressHistory = [];
       isTracking = false;
+      
       logger.debug("Keyboard tracker destroyed");
     } catch (error) {
-      logger.error("Failed to destroy keyboard tracker", { error });
+      logger.error("Error destroying keyboard tracker", { error });
     }
   };
-  
+
   return {
     init,
     destroy
