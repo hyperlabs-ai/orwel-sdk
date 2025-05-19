@@ -7,9 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.18] - 2025-05-17
 
+### Added
+- Added request timeout protection (5s) for all API calls
+- Implemented circuit breaker pattern for API request failure protection
+- Added queue size limits (1000 events) with smart event prioritization
+- Added safe monitoring setup with isolated error handling per monitor
+
 ### Improved
 - Removed confirmation dialog when navigating away from page
 - Fixed session synchronization to ensure sessions are created before events
+- Enhanced error handling across all SDK operations
+- Improved queue management with session event prioritization
+- Added graceful degradation for monitoring features
+- Better memory management with queue size limits
+- More robust error recovery in network operations
+
+### Optimized
+- Implemented smart event dropping when queue is full
+- Added automatic circuit breaker reset after 1 minute
+- Enhanced logging with more detailed error information
+- Improved monitoring initialization with isolated failure handling
+- Better session event handling with priority queuing
+
+### Fixed
+- Fixed potential memory leaks in event queue
+- Improved error handling in monitoring setup
+- Enhanced API call reliability with timeout protection
+- Better handling of network failures with circuit breaker
+- Protected against monitoring setup failures affecting core functionality
 
 ## [1.0.17] - 2025-05-17
 

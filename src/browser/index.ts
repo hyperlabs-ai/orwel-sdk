@@ -138,25 +138,29 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
-        // Forzar actualización síncrona de la sesión antes de cerrar
+        // Update session status without forcing a sync flush
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
           status: 'closed'
-        });
+        }, true); // Pass true to indicate this is a final update
         
-        // Forzar flush síncrono pero sin bloquear la navegación
-        orwel.flush();
-      });
-      
-      // Ya no marcamos la sesión como finalizada en visibilitychange
-      window.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") {
-          logger.debug("Page visibility changed to hidden, flushing queue");
-          orwel.flush();  // Solo enviamos los eventos pendientes
+        // Use sendBeacon for final flush if available
+        if (navigator.sendBeacon) {
+          const pendingEvents = queueManager.getQueue();
+          if (pendingEvents.length > 0) {
+            const beaconUrl = `${config.apiUrl}/events`;
+            navigator.sendBeacon(beaconUrl, JSON.stringify(pendingEvents));
+          }
         }
       });
       
-      // Auto-monitor si está habilitado en la configuración
+      window.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          logger.debug("Page visibility changed to hidden, flushing queue");
+          orwel.flush();
+        }
+      });
+      
       if (opts.autoMonitor) {
         logger.info("Auto monitoring enabled, starting monitors");
         orwel.monitor();

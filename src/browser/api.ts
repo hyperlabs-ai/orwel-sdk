@@ -1,6 +1,8 @@
 import { OrwelEvent } from "../types";
 import { createLogger } from "../utils";
 
+const DEFAULT_TIMEOUT = 5000; // 5 seconds timeout
+
 /**
  * Creates an API client for sending events to the server
  */
@@ -10,7 +12,7 @@ export function createApiClient(
   getSession: () => Record<string, any>,
   logger: ReturnType<typeof createLogger>
 ) {
-  // Enviar un evento al servidor
+  // Enviar un evento al servidor con timeout
   const send = async (event: OrwelEvent): Promise<boolean> => {
     try {
       const payload = {
@@ -23,7 +25,9 @@ export function createApiClient(
       logger.debug("Sending event to server", { type: event.type });
       
       const config = getConfig();
-      const response = await fetch("https://api.orwel.io/ingest", {
+
+      // Create fetch promise
+      const fetchPromise = fetch("https://api.orwel.io/ingest", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -32,6 +36,16 @@ export function createApiClient(
         body: JSON.stringify(payload),
         keepalive: true,
       });
+
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Request timeout'));
+        }, DEFAULT_TIMEOUT);
+      });
+
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
       
       if (!response.ok) {
         // Si es error 400, es un problema con el formato y no debemos reintentar
@@ -49,7 +63,12 @@ export function createApiClient(
       logger.success("Event sent successfully", { type: event.type });
       return true;
     } catch (err) {
-      logger.error("Failed to send event", { type: event.type, error: err });
+      // Distinguish between timeout and other errors
+      const isTimeout = err instanceof Error && err.message === 'Request timeout';
+      logger.error(`Failed to send event: ${isTimeout ? 'timeout' : 'network error'}`, { 
+        type: event.type, 
+        error: err 
+      });
       return false;
     }
   };

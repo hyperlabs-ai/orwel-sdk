@@ -51,6 +51,7 @@ export function createServerImplementation(): Orwel {
     session: noopSession,
     monitor: () => {
       logger.debug('Monitor called (no-op in server environment)');
+      return { success: true };
     },
     flush: noopAsync,
     form: noopForm

@@ -1,6 +1,10 @@
 import { OrwelEvent } from "../types";
 import { createLogger } from "../utils";
 
+const MAX_FAILURES = 3;
+const RESET_TIMEOUT = 60000; // 1 minute
+const MAX_QUEUE_SIZE = 1000; // Maximum number of events in queue
+
 /**
  * Creates a queue manager for handling event queueing and sending
  */
@@ -21,13 +25,28 @@ export function createQueueManager(
 ) {
   // Cola de eventos
   const queue: OrwelEvent[] = [];
+  
+  // Circuit breaker state
+  let failureCount = 0;
+  let lastFailureTime = 0;
+
+  // Reset circuit breaker if enough time has passed
+  const checkCircuitBreaker = () => {
+    const now = Date.now();
+    if (now - lastFailureTime >= RESET_TIMEOUT) {
+      failureCount = 0;
+    }
+    return failureCount < MAX_FAILURES;
+  };
 
   // Cargar la cola desde el almacenamiento
   const loadQueue = () => {
     try {
       const savedQueue = storage.loadQueue();
       if (savedQueue.length > 0) {
-        queue.push(...savedQueue);
+        // Respect MAX_QUEUE_SIZE when loading
+        const eventsToAdd = savedQueue.slice(-MAX_QUEUE_SIZE);
+        queue.push(...eventsToAdd);
       }
       logger.debug("Queue loaded from storage", { count: queue.length });
     } catch (error) {
@@ -47,20 +66,45 @@ export function createQueueManager(
 
   // Agregar un evento a la cola
   const addEvent = (event: OrwelEvent) => {
-    queue.push(event);
-    saveQueue();
-    logger.debug(`Added ${event.type} event to queue`);
+    try {
+      // Session events should always be first
+      if (event.type === "session") {
+        // Remove any existing session events to avoid duplicates
+        const nonSessionEvents = queue.filter(evt => evt.type !== "session");
+        queue.length = 0;
+        queue.push(event, ...nonSessionEvents.slice(-MAX_QUEUE_SIZE + 1)); // Ensure we don't exceed MAX_QUEUE_SIZE
+      } else {
+        // If queue is full, remove oldest non-session event
+        if (queue.length >= MAX_QUEUE_SIZE) {
+          const sessionEvents = queue.filter(evt => evt.type === "session");
+          const nonSessionEvents = queue.filter(evt => evt.type !== "session");
+          nonSessionEvents.shift(); // Remove oldest non-session event
+          queue.length = 0;
+          queue.push(...sessionEvents, ...nonSessionEvents);
+        }
+        queue.push(event);
+      }
+      saveQueue();
+      logger.debug(`Added ${event.type} event to queue`, { queueSize: queue.length });
+    } catch (error) {
+      logger.error("Failed to add event to queue", { type: event.type, error });
+    }
   };
 
   // Buscar y actualizar un evento existente
   const findAndUpdateEvent = (type: string, data: OrwelEvent): boolean => {
-    const index = queue.findIndex(evt => evt.type === type);
-    if (index >= 0) {
-      queue[index] = data;
-      saveQueue();
-      return true;
+    try {
+      const index = queue.findIndex(evt => evt.type === type);
+      if (index >= 0) {
+        queue[index] = data;
+        saveQueue();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      logger.error("Failed to update event in queue", { type, error });
+      return false;
     }
-    return false;
   };
 
   // Vaciar (flush) y enviar todos los eventos en la cola
@@ -71,7 +115,7 @@ export function createQueueManager(
     logger.debug("Flushing event queue", { count: queue.length });
     let sentCount = 0;
     
-    while (queue.length > 0) {
+    while (queue.length > 0 && checkCircuitBreaker()) {
       const evt = queue.shift();
       if (evt) {
         const result = await api.send(evt);
@@ -80,8 +124,20 @@ export function createQueueManager(
           if (evt.type === "session") {
             sessionManager.setPendingUpdate(false);
           }
+          // Reset failure count on success
+          failureCount = 0;
         } else {
-          // Requeue failed event if retry count is not exceeded
+          // Update circuit breaker state
+          failureCount++;
+          lastFailureTime = Date.now();
+
+          // Special handling for session events - don't requeue if failed
+          if (evt.type === "session") {
+            logger.error("Session event failed to send - will not retry");
+            continue;
+          }
+          
+          // Requeue other failed events if retry count is not exceeded
           if (!evt.__retryCount) evt.__retryCount = 0;
           
           if (evt.__retryCount < 3) {
@@ -96,19 +152,39 @@ export function createQueueManager(
           }
         }
       }
+
+      // If circuit breaker is tripped, stop processing
+      if (!checkCircuitBreaker()) {
+        logger.warning("Circuit breaker tripped - pausing event processing", {
+          failureCount,
+          remainingEvents: queue.length
+        });
+        break;
+      }
     }
     
     saveQueue();
-    logger.success("Queue flushed successfully", { sent: sentCount });
+    logger.success("Queue flushed", { 
+      sent: sentCount,
+      remaining: queue.length,
+      circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+    });
     return { success: true, count: sentCount };
   };
+
+  // Start circuit breaker reset interval
+  setInterval(() => {
+    if (failureCount > 0 && checkCircuitBreaker()) {
+      logger.debug("Circuit breaker reset", { previousFailures: failureCount });
+    }
+  }, RESET_TIMEOUT);
 
   return {
     loadQueue,
     saveQueue,
     addEvent,
     findAndUpdateEvent,
-    getQueue: () => [...queue],
-    flush
+    flush,
+    getQueue: () => [...queue]
   };
 } 

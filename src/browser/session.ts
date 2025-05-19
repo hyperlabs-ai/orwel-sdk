@@ -135,14 +135,26 @@ export function createSessionManager(
   }, 1000);
 
   // Actualizar datos de sesión
-  const updateSession = (properties: Partial<Session> = {}) => {
+  const updateSession = (properties: Partial<Session> = {}, isFinalUpdate: boolean = false) => {
     logger.info("Updating session data", {
       properties: Object.keys(properties),
+      isFinalUpdate
     });
 
     // Si estamos cerrando la sesión, asegurarnos de que tenga todos los campos necesarios
     if (properties.status === 'closed') {
       properties.finishedAt = properties.finishedAt || new Date().toISOString();
+    }
+
+    // For final updates, update session directly without using buffer
+    if (isFinalUpdate) {
+      session = {
+        ...session,
+        ...properties,
+        updatedAt: new Date().toISOString()
+      };
+      saveSession();
+      return { success: true, sessionId: session.id };
     }
 
     // Añadir propiedades al buffer
