@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorador Interactivo del Algoritmo Bayesiano</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+        - Introducción: Text block (Inform).
+        - Componentes (Estados, Evidencia, Priors, Likelihoods): Styled HTML lists/cards (Inform).
+        - Teorema de Bayes: Formatted HTML/CSS for formula, JS for optional hover (Inform, Explain).
+        - Flujo de Trabajo Interactivo (Simulator):
+            - Goal: Demonstrate, Engage, Explore.
+            - Inputs: HTML sliders/buttons for Priors P(H) and triggering Evidence E.
+            - Data: JS objects for example States, Evidence, and a predefined P(E|H) matrix.
+            - Outputs: Chart.js bar chart for dynamic P(H) display. HTML text for P(E|H) used, P(E) calc, and P(H|E) results.
+            - Justification: Makes the abstract Bayesian update process concrete and observable.
+        - Consideraciones: Styled HTML lists/text (Inform).
+        - Library/Method: Chart.js (Canvas) for dynamic probability visualization. All other elements via HTML/CSS/Tailwind and vanilla JS.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .nav-button {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .nav-button.active {
+            background-color: #0891b2; /* cyan-600 */
+            color: white;
+        }
+        .nav-button:not(.active):hover {
+            background-color: #f0f9ff; /* sky-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Tailwind max-w-2xl */
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px; /* Base height */
+            max-height: 350px;
+        }
+        @media (min-width: 640px) { /* sm */
+            .chart-container {
+                height: 320px;
+            }
+        }
+        @media (min-width: 768px) { /* md */
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Ensure long labels in Chart.js are handled (though not strictly needed for short state names here) */
+        .chartjs-render-monitor {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-neutral-800">
+
+    <header class="bg-orange-100 shadow-md">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl sm:text-3xl font-bold text-cyan-700 text-center">Explorador Interactivo del Algoritmo Bayesiano de Micro-gestos</h1>
+        </div>
+    </header>
+
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap justify-center items-center space-x-1 sm:space-x-2 py-2">
+                <button data-target="intro" class="nav-button active text-sm sm:text-base font-medium text-cyan-700 px-3 py-2 rounded-md">Introducción</button>
+                <button data-target="components" class="nav-button text-sm sm:text-base font-medium text-cyan-700 px-3 py-2 rounded-md">Componentes Clave</button>
+                <button data-target="theorem" class="nav-button text-sm sm:text-base font-medium text-cyan-700 px-3 py-2 rounded-md">Teorema de Bayes</button>
+                <button data-target="workflow" class="nav-button text-sm sm:text-base font-medium text-cyan-700 px-3 py-2 rounded-md">Flujo Interactivo</button>
+                <button data-target="considerations" class="nav-button text-sm sm:text-base font-medium text-cyan-700 px-3 py-2 rounded-md">Consideraciones</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <section id="intro" class="content-section active">
+            <h2 class="text-xl sm:text-2xl font-semibold text-cyan-600 mb-4">Bienvenido al Explorador del Algoritmo Bayesiano</h2>
+            <div class="space-y-4 text-neutral-700 bg-white p-6 rounded-lg shadow">
+                <p>Esta aplicación interactiva está diseñada para ayudarte a comprender cómo funciona un algoritmo basado en el teorema de Bayes para inferir el estado emocional o el tipo de un visitante en una plataforma digital (como un sitio web o una aplicación) a partir de sus micro-gestos.</p>
+                <p>Los micro-gestos son pequeñas acciones que los usuarios realizan, a menudo inconscientemente, mientras interactúan con una interfaz digital, como la velocidad del scroll, los movimientos del ratón o los patrones de clics. Al analizar estos gestos, el algoritmo busca actualizar la probabilidad de que un visitante se encuentre en un estado particular (por ejemplo, frustrado, interesado) o pertenezca a un tipo específico (por ejemplo, explorador, decidido).</p>
+                <p>Navega por las diferentes secciones para aprender sobre los componentes del algoritmo, entender el teorema de Bayes y, lo más importante, experimentar con el <strong class="text-cyan-700">Flujo Interactivo</strong> para ver el algoritmo en acción.</p>
+            </div>
+        </section>
+
+        <section id="components" class="content-section">
+            <h2 class="text-xl sm:text-2xl font-semibold text-cyan-600 mb-6">Componentes Clave del Algoritmo</h2>
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">1. Estados (H - Hipótesis)</h3>
+                    <p class="text-neutral-700 mb-3">Representan las posibles emociones o tipos de visitante que queremos detectar. Son las "conclusiones" que el algoritmo intenta inferir.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-medium text-neutral-600">Ejemplos de Emociones:</h4>
+                            <ul class="list-disc list-inside text-neutral-700 ml-4">
+                                <li><strong class="text-orange-600">H_frustracion:</strong> El visitante está frustrado.</li>
+                                <li><strong class="text-green-600">H_interes:</strong> El visitante está interesado o comprometido.</li>
+                                <li><strong class="text-yellow-600">H_confusion:</strong> El visitante está confundido.</li>
+                                <li><strong class="text-blue-600">H_satisfaccion:</strong> El visitante está satisfecho.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-neutral-600">Ejemplos de Tipos de Visitante:</h4>
+                            <ul class="list-disc list-inside text-neutral-700 ml-4">
+                                <li><strong>H_decidido:</strong> Sabe lo que busca.</li>
+                                <li><strong>H_explorador:</strong> Navega por curiosidad.</li>
+                                <li><strong>H_comparador:</strong> Analiza opciones.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">2. Evidencia (E - Micro-gestos)</h3>
+                    <p class="text-neutral-700 mb-3">Son las acciones observables del visitante, capturadas por un SDK (Software Development Kit) interno. Estos gestos proporcionan pistas sobre el estado del visitante.</p>
+                    <h4 class="font-medium text-neutral-600">Ejemplos de Micro-gestos:</h4>
+                    <ul class="list-disc list-inside text-neutral-700 ml-4 columns-1 sm:columns-2">
+                        <li><code>E_scroll_rapido</code>: Scroll vertical muy rápido.</li>
+                        <li><code>E_scroll_erratico</code>: Cambios bruscos en scroll.</li>
+                        <li><code>E_mov_raton_agitado</code>: Movimientos del cursor rápidos y erráticos.</li>
+                        <li><code>E_clics_multiples_rapidos</code>: "Rage clicks".</li>
+                        <li><code>E_tiempo_hover_prolongado</code>: Cursor sobre elemento mucho tiempo.</li>
+                        <li><code>E_pausas_largas</code>: Inactividad prolongada.</li>
+                        <li><code>E_correcciones_formulario</code>: Borrar y reescribir en formularios.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">3. Probabilidades a Priori P(H)</h3>
+                    <p class="text-neutral-700">Es la probabilidad inicial estimada de cada estado <code>H</code> *antes* de observar cualquier evidencia. Por ejemplo, podríamos estimar que, en general, el 10% de los visitantes inician frustrados: <code>P(H_frustracion) = 0.1</code>. Estas pueden basarse en datos históricos o ser uniformes si no hay información previa.</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">4. Verosimilitudes (Likelihoods) P(E|H)</h3>
+                    <p class="text-neutral-700">Es la probabilidad de observar un micro-gesto específico <code>E</code>, *dado que* el visitante se encuentra en un estado <code>H</code>. Esta es una parte crítica y usualmente requiere datos o conocimiento experto para su estimación. Por ejemplo: <code>P(E_scroll_rapido | H_frustracion) = 0.7</code> (es muy probable que alguien frustrado haga scroll rápido).</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="theorem" class="content-section">
+            <h2 class="text-xl sm:text-2xl font-semibold text-cyan-600 mb-4">El Teorema de Bayes</h2>
+            <div class="bg-white p-6 rounded-lg shadow text-neutral-700 space-y-4">
+                <p>El teorema de Bayes es el corazón de este algoritmo. Permite actualizar nuestras creencias sobre la probabilidad de un estado (Hipótesis H) a medida que observamos nueva evidencia (Micro-gesto E).</p>
+                <p>La fórmula es:</p>
+                <div class="bg-orange-50 p-4 rounded-md text-center my-4 overflow-x-auto">
+                    <code class="text-lg sm:text-xl font-mono text-cyan-800">
+                        P(H|E) = [ P(E|H) * P(H) ] / P(E)
+                    </code>
+                </div>
+                <p>Donde:</p>
+                <ul class="list-none space-y-2 ml-4">
+                    <li>
+                        <span class="font-semibold text-cyan-700 tooltip">P(H|E)
+                            <span class="tooltiptext">Probabilidad a Posteriori: La probabilidad actualizada del estado H DESPUÉS de observar la evidencia E. ¡Esto es lo que queremos calcular!</span>
+                        </span>: Probabilidad a Posteriori.
+                    </li>
+                    <li>
+                        <span class="font-semibold text-cyan-700 tooltip">P(E|H)
+                            <span class="tooltiptext">Verosimilitud (Likelihood): La probabilidad de observar la evidencia E SI el estado H es verdadero. (Definida en Componentes Clave).</span>
+                        </span>: Verosimilitud.
+                    </li>
+                    <li>
+                        <span class="font-semibold text-cyan-700 tooltip">P(H)
+                            <span class="tooltiptext">Probabilidad a Priori: Nuestra creencia inicial sobre la probabilidad del estado H ANTES de ver la evidencia E. (Definida en Componentes Clave).</span>
+                        </span>: Probabilidad a Priori.
+                    </li>
+                    <li>
+                        <span class="font-semibold text-cyan-700 tooltip">P(E)
+                            <span class="tooltiptext">Probabilidad Total de la Evidencia (Marginal Likelihood): La probabilidad general de observar la evidencia E, considerando todos los posibles estados. Se calcula como: Σ [P(E|Hi) * P(Hi)] para todos los estados Hi. Actúa como un factor de normalización.</span>
+                        </span>: Probabilidad Total de la Evidencia.
+                    </li>
+                </ul>
+                <p>A medida que se observan más micro-gestos, la probabilidad a posteriori de un paso se convierte en la probabilidad a priori para el siguiente, permitiendo una actualización continua de nuestras inferencias.</p>
+            </div>
+        </section>
+
+        <section id="workflow" class="content-section">
+            <h2 class="text-xl sm:text-2xl font-semibold text-cyan-600 mb-4">Flujo de Trabajo Interactivo (Simulador)</h2>
+            <div class="bg-white p-6 rounded-lg shadow text-neutral-700 space-y-6">
+                <p>Este simulador te permite experimentar con el algoritmo. Define las probabilidades iniciales (a priori) para algunos estados emocionales de ejemplo. Luego, "activa" micro-gestos y observa cómo cambian las probabilidades de cada estado según el teorema de Bayes.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div>
+                        <h3 class="text-lg font-semibold text-cyan-700 mb-3">1. Configuración Inicial (Probabilidades a Priori)</h3>
+                        <div class="space-y-3 mb-4">
+                            <div>
+                                <label for="p_frustracion" class="block text-sm font-medium text-neutral-600">P(Frustración): <span id="val_p_frustracion">0.33</span></label>
+                                <input type="range" id="p_frustracion" min="0" max="1" step="0.01" value="0.33" class="w-full h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                            </div>
+                            <div>
+                                <label for="p_interes" class="block text-sm font-medium text-neutral-600">P(Interés): <span id="val_p_interes">0.34</span></label>
+                                <input type="range" id="p_interes" min="0" max="1" step="0.01" value="0.34" class="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-500">
+                            </div>
+                            <div>
+                                <label for="p_confusion" class="block text-sm font-medium text-neutral-600">P(Confusión): <span id="val_p_confusion">0.33</span></label>
+                                <input type="range" id="p_confusion" min="0" max="1" step="0.01" value="0.33" class="w-full h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer accent-yellow-500">
+                            </div>
+                        </div>
+                        <button id="normalizePriors" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-4 rounded-md transition duration-150 ease-in-out mb-4">Normalizar Priors (Suma = 1)</button>
+                        <button id="resetSimulation" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150 ease-in-out">Reiniciar Simulación</button>
+
+                        <h3 class="text-lg font-semibold text-cyan-700 mt-6 mb-3">2. Activar Micro-gestos (Evidencia)</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button data-gesture="E_scroll_rapido" class="gesture-btn bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-2 px-3 rounded-md text-sm">Scroll Rápido</button>
+                            <button data-gesture="E_clics_multiples_rapidos" class="gesture-btn bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-2 px-3 rounded-md text-sm">Clics Múltiples</button>
+                            <button data-gesture="E_tiempo_hover_prolongado" class="gesture-btn bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-2 px-3 rounded-md text-sm">Hover Prolongado</button>
+                            <button data-gesture="E_mov_raton_agitado" class="gesture-btn bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-2 px-3 rounded-md text-sm">Ratón Agitado</button>
+                        </div>
+                         <p class="text-xs text-neutral-500 mt-2">Nota: Las verosimilitudes P(E|H) están predefinidas para esta simulación (ver tabla abajo).</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-cyan-700 mb-3">3. Resultados (Probabilidades Actualizadas)</h3>
+                        <div class="chart-container mb-4">
+                            <canvas id="probabilitiesChart"></canvas>
+                        </div>
+                        <div id="calculation_details" class="text-sm bg-orange-50 p-3 rounded-md">
+                            <p>Selecciona un gesto para ver los cálculos.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">Tabla de Verosimilitudes P(E|H) Usada en esta Simulación:</h3>
+                    <div class="overflow-x-auto bg-orange-50 p-3 rounded-md">
+                        <table class="min-w-full text-sm text-left text-neutral-600">
+                            <thead class="text-xs text-neutral-700 uppercase bg-orange-200">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2">Evidencia (E) / Estado (H)</th>
+                                    <th scope="col" class="px-4 py-2 text-orange-700">Frustración</th>
+                                    <th scope="col" class="px-4 py-2 text-green-700">Interés</th>
+                                    <th scope="col" class="px-4 py-2 text-yellow-700">Confusión</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="bg-white border-b border-orange-100">
+                                    <td class="px-4 py-2 font-medium">Scroll Rápido</td>
+                                    <td class="px-4 py-2">0.7</td>
+                                    <td class="px-4 py-2">0.2</td>
+                                    <td class="px-4 py-2">0.5</td>
+                                </tr>
+                                <tr class="bg-white border-b border-orange-100">
+                                    <td class="px-4 py-2 font-medium">Clics Múltiples</td>
+                                    <td class="px-4 py-2">0.8</td>
+                                    <td class="px-4 py-2">0.1</td>
+                                    <td class="px-4 py-2">0.4</td>
+                                </tr>
+                                <tr class="bg-white border-b border-orange-100">
+                                    <td class="px-4 py-2 font-medium">Hover Prolongado</td>
+                                    <td class="px-4 py-2">0.1</td>
+                                    <td class="px-4 py-2">0.7</td>
+                                    <td class="px-4 py-2">0.3</td>
+                                </tr>
+                                <tr class="bg-white">
+                                    <td class="px-4 py-2 font-medium">Ratón Agitado</td>
+                                    <td class="px-4 py-2">0.75</td>
+                                    <td class="px-4 py-2">0.15</td>
+                                    <td class="px-4 py-2">0.6</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                 <div id="log_gestos" class="mt-6">
+                    <h3 class="text-lg font-semibold text-cyan-700 mb-2">Registro de Gestos y Probabilidades:</h3>
+                    <div class="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-md border border-gray-200 text-xs">
+                        <p>Aún no se han activado gestos.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="considerations" class="content-section">
+            <h2 class="text-xl sm:text-2xl font-semibold text-cyan-600 mb-4">Consideraciones de Implementación</h2>
+            <div class="bg-white p-6 rounded-lg shadow text-neutral-700 space-y-4">
+                <p>Implementar un sistema de este tipo en un entorno real implica varias consideraciones importantes:</p>
+                <ul class="list-disc list-inside space-y-3 ml-4">
+                    <li><strong>Recopilación de Datos para Verosimilitudes P(E|H):</strong> Esta es la parte más desafiante. Requiere un SDK robusto para capturar micro-gestos y, crucialmente, una forma de asociar estos gestos con estados reales (quizás mediante feedback de usuarios, análisis de sesiones problemáticas, o etiquetado manual). Técnicas de Machine Learning pueden ayudar si se dispone de datos etiquetados.</li>
+                    <li><strong>Combinación de Evidencia:</strong> Los gestos rara vez ocurren aislados. El algoritmo debe manejar secuencias, posiblemente usando ventanas de tiempo o asumiendo independencia condicional (como en Naive Bayes) para simplificar.</li>
+                    <li><strong>Dependencia del Contexto:</strong> Un mismo gesto puede tener significados diferentes según la página, la tarea del usuario o el tipo de contenido. El sistema podría necesitar diferentes modelos de P(E|H) para distintos contextos.</li>
+                    <li><strong>Naturaleza Dinámica:</strong> Las emociones e intenciones cambian. El algoritmo debe actualizarse continuamente, y quizás incorporar un factor de "olvido" para la evidencia más antigua.</li>
+                    <li><strong>Suavizado (Smoothing):</strong> Para evitar problemas con probabilidades cero (un gesto nunca visto con un estado), se usan técnicas como el suavizado de Laplace.</li>
+                    <li><strong>Privacidad y Ética:</strong> Es fundamental ser transparente con los usuarios sobre la recopilación y uso de estos datos. Se debe asegurar el anonimato y el cumplimiento de las regulaciones de privacidad (GDPR, CCPA, etc.). El objetivo debe ser mejorar la experiencia del usuario, no la manipulación.</li>
+                    <li><strong>Calibración y Pruebas:</strong> El sistema requerirá calibración y pruebas exhaustivas para asegurar que las inferencias son razonablemente precisas y útiles.</li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-orange-100 mt-12 py-6 text-center">
+        <p class="text-sm text-neutral-600">&copy; 2024 Explorador Interactivo del Algoritmo Bayesiano. Creado con fines educativos.</p>
+    </footer>
+
+<script>
+    const navButtons = document.querySelectorAll('.nav-button');
+    const contentSections = document.querySelectorAll('.content-section');
+    const priorFrustracionSlider = document.getElementById('p_frustracion');
+    const priorInteresSlider = document.getElementById('p_interes');
+    const priorConfusionSlider = document.getElementById('p_confusion');
+    const valFrustracion = document.getElementById('val_p_frustracion');
+    const valInteres = document.getElementById('val_p_interes');
+    const valConfusion = document.getElementById('val_p_confusion');
+    const normalizeButton = document.getElementById('normalizePriors');
+    const gestureButtons = document.querySelectorAll('.gesture-btn');
+    const calculationDetailsDiv = document.getElementById('calculation_details');
+    const resetSimulationButton = document.getElementById('resetSimulation');
+    const logGestosDiv = document.getElementById('log_gestos').querySelector('div');
+
+    let probabilitiesChart;
+    let currentPriors = {};
+
+    const initialPriors = {
+        frustracion: 0.33,
+        interes: 0.34,
+        confusion: 0.33
+    };
+
+    // P(E|H) - Likelihoods
+    const likelihoods = {
+        'E_scroll_rapido': { frustracion: 0.7, interes: 0.2, confusion: 0.5 },
+        'E_clics_multiples_rapidos': { frustracion: 0.8, interes: 0.1, confusion: 0.4 },
+        'E_tiempo_hover_prolongado': { frustracion: 0.1, interes: 0.7, confusion: 0.3 },
+        'E_mov_raton_agitado': { frustracion: 0.75, interes: 0.15, confusion: 0.6 }
+    };
+    
+    const stateColors = {
+        frustracion: 'rgba(234, 88, 12, 0.7)', // orange-600
+        interes: 'rgba(22, 163, 74, 0.7)',    // green-600
+        confusion: 'rgba(234, 179, 8, 0.7)'   // yellow-500
+    };
+
+    const stateBorderColors = {
+        frustracion: 'rgba(234, 88, 12, 1)',
+        interes: 'rgba(22, 163, 74, 1)',
+        confusion: 'rgba(234, 179, 8, 1)'
+    };
+
+
+    function updateSliderValues() {
+        valFrustracion.textContent = parseFloat(priorFrustracionSlider.value).toFixed(2);
+        valInteres.textContent = parseFloat(priorInteresSlider.value).toFixed(2);
+        valConfusion.textContent = parseFloat(priorConfusionSlider.value).toFixed(2);
+    }
+
+    function normalizePriors() {
+        let pF = parseFloat(priorFrustracionSlider.value);
+        let pI = parseFloat(priorInteresSlider.value);
+        let pC = parseFloat(priorConfusionSlider.value);
+        const total = pF + pI + pC;
+
+        if (total === 0) { // Avoid division by zero, distribute evenly
+            pF = 1/3;
+            pI = 1/3;
+            pC = 1/3;
+        } else {
+            pF = pF / total;
+            pI = pI / total;
+            pC = pC / total;
+        }
+        
+        priorFrustracionSlider.value = pF.toFixed(4); // Use more precision for internal storage
+        priorInteresSlider.value = pI.toFixed(4);
+        priorConfusionSlider.value = pC.toFixed(4);
+        updateSliderValues();
+        
+        currentPriors = {
+            frustracion: pF,
+            interes: pI,
+            confusion: pC
+        };
+        updateChart();
+    }
+    
+    function setupInitialPriors() {
+        priorFrustracionSlider.value = initialPriors.frustracion;
+        priorInteresSlider.value = initialPriors.interes;
+        priorConfusionSlider.value = initialPriors.confusion;
+        normalizePriors(); // This also calls updateSliderValues and updateChart
+    }
+
+
+    function initChart() {
+        const ctx = document.getElementById('probabilitiesChart').getContext('2d');
+        probabilitiesChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Frustración', 'Interés', 'Confusión'],
+                datasets: [{
+                    label: 'Probabilidad del Estado',
+                    data: [currentPriors.frustracion, currentPriors.interes, currentPriors.confusion],
+                    backgroundColor: [stateColors.frustracion, stateColors.interes, stateColors.confusion],
+                    borderColor: [stateBorderColors.frustracion, stateBorderColors.interes, stateBorderColors.confusion],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1,
+                        title: { display: true, text: 'Probabilidad' }
+                    },
+                    x: {
+                         title: { display: true, text: 'Estado Emocional Inferido' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `P(${context.label}) = ${context.raw.toFixed(3)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateChart() {
+        if (probabilitiesChart) {
+            probabilitiesChart.data.datasets[0].data = [currentPriors.frustracion, currentPriors.interes, currentPriors.confusion];
+            probabilitiesChart.update();
+        }
+    }
+    
+    function addToLog(gestureName, oldPriors, newPriors) {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'mb-2 p-2 border-b border-gray-200';
+        
+        let oldPriorsStr = `F: ${oldPriors.frustracion.toFixed(3)}, I: ${oldPriors.interes.toFixed(3)}, C: ${oldPriors.confusion.toFixed(3)}`;
+        let newPriorsStr = `F: ${newPriors.frustracion.toFixed(3)}, I: ${newPriors.interes.toFixed(3)}, C: ${newPriors.confusion.toFixed(3)}`;
+
+        logEntry.innerHTML = `<strong>Gesto:</strong> ${gestureName}<br>
+                              <strong>Priors (antes):</strong> ${oldPriorsStr}<br>
+                              <strong>Posteriors (después):</strong> ${newPriorsStr}`;
+        
+        if (logGestosDiv.firstChild && logGestosDiv.firstChild.textContent.startsWith("Aún no se han activado gestos.")) {
+            logGestosDiv.innerHTML = ''; // Clear initial message
+        }
+        logGestosDiv.prepend(logEntry); // Add new entry at the top
+    }
+
+
+    function handleGesture(event) {
+        const gesture = event.target.dataset.gesture;
+        const gestureName = event.target.textContent;
+
+        const P_E_given_H_frustracion = likelihoods[gesture].frustracion;
+        const P_E_given_H_interes = likelihoods[gesture].interes;
+        const P_E_given_H_confusion = likelihoods[gesture].confusion;
+
+        const P_H_frustracion_prior = currentPriors.frustracion;
+        const P_H_interes_prior = currentPriors.interes;
+        const P_H_confusion_prior = currentPriors.confusion;
+
+        // Numerators: P(E|H) * P(H)
+        const num_frustracion = P_E_given_H_frustracion * P_H_frustracion_prior;
+        const num_interes = P_E_given_H_interes * P_H_interes_prior;
+        const num_confusion = P_E_given_H_confusion * P_H_confusion_prior;
+
+        // Denominator: P(E) = Σ [P(E|Hi) * P(Hi)]
+        const P_E = num_frustracion + num_interes + num_confusion;
+
+        let P_H_frustracion_posterior, P_H_interes_posterior, P_H_confusion_posterior;
+
+        if (P_E === 0) { // Avoid division by zero, if P(E) is 0, posteriors remain same as priors or become uniform if priors were also zero.
+                        // This scenario is unlikely with non-zero likelihoods and priors.
+            P_H_frustracion_posterior = P_H_frustracion_prior;
+            P_H_interes_posterior = P_H_interes_prior;
+            P_H_confusion_posterior = P_H_confusion_prior;
+        } else {
+            P_H_frustracion_posterior = num_frustracion / P_E;
+            P_H_interes_posterior = num_interes / P_E;
+            P_H_confusion_posterior = num_confusion / P_E;
+        }
+        
+        const oldPriorsForLog = {...currentPriors};
+
+        currentPriors = {
+            frustracion: P_H_frustracion_posterior,
+            interes: P_H_interes_posterior,
+            confusion: P_H_confusion_posterior
+        };
+        
+        // Update sliders to reflect posteriors (which become new priors)
+        priorFrustracionSlider.value = P_H_frustracion_posterior.toFixed(4);
+        priorInteresSlider.value = P_H_interes_posterior.toFixed(4);
+        priorConfusionSlider.value = P_H_confusion_posterior.toFixed(4);
+        updateSliderValues(); // Update text next to sliders
+
+        updateChart();
+        
+        addToLog(gestureName, oldPriorsForLog, currentPriors);
+
+        calculationDetailsDiv.innerHTML = `
+            <h4 class="font-semibold text-md mb-1">Cálculo para "${gestureName}":</h4>
+            <p>P(E|Frust.) = ${P_E_given_H_frustracion.toFixed(2)}, P(E|Inter.) = ${P_E_given_H_interes.toFixed(2)}, P(E|Conf.) = ${P_E_given_H_confusion.toFixed(2)}</p>
+            <p>P(Frust.)$_{prior}$ = ${P_H_frustracion_prior.toFixed(3)}, P(Inter.)$_{prior}$ = ${P_H_interes_prior.toFixed(3)}, P(Conf.)$_{prior}$ = ${P_H_confusion_prior.toFixed(3)}</p>
+            <p class="mt-1">P(E) = (${P_E_given_H_frustracion.toFixed(2)}*${P_H_frustracion_prior.toFixed(3)}) + (${P_E_given_H_interes.toFixed(2)}*${P_H_interes_prior.toFixed(3)}) + (${P_E_given_H_confusion.toFixed(2)}*${P_H_confusion_prior.toFixed(3)}) = ${P_E.toFixed(3)}</p>
+            <p class="mt-1 font-semibold">Resultados Posteriores:</p>
+            <p>P(Frust.|E) = ${P_H_frustracion_posterior.toFixed(3)}</p>
+            <p>P(Inter.|E) = ${P_H_interes_posterior.toFixed(3)}</p>
+            <p>P(Conf.|E) = ${P_H_confusion_posterior.toFixed(3)}</p>
+        `;
+    }
+    
+    function resetSim() {
+        setupInitialPriors(); // This normalizes and updates chart
+        calculationDetailsDiv.innerHTML = `<p>Selecciona un gesto para ver los cálculos.</p>`;
+        logGestosDiv.innerHTML = '<p>Aún no se han activado gestos.</p>';
+    }
+
+    // Event Listeners
+    navButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetId = button.dataset.target;
+            
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+
+            contentSections.forEach(section => {
+                if (section.id === targetId) {
+                    section.classList.add('active');
+                } else {
+                    section.classList.remove('active');
+                }
+            });
+             window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+
+    [priorFrustracionSlider, priorInteresSlider, priorConfusionSlider].forEach(slider => {
+        slider.addEventListener('input', () => {
+            updateSliderValues();
+            // Optionally, could auto-normalize on every slider input, or just reflect current values
+            // For now, let's just update currentPriors without normalizing until button press
+            currentPriors = {
+                frustracion: parseFloat(priorFrustracionSlider.value),
+                interes: parseFloat(priorInteresSlider.value),
+                confusion: parseFloat(priorConfusionSlider.value)
+            };
+            updateChart(); // Update chart with potentially unnormalized values until 'Normalize' is clicked
+        });
+    });
+    
+    normalizeButton.addEventListener('click', normalizePriors);
+    resetSimulationButton.addEventListener('click', resetSim);
+
+    gestureButtons.forEach(button => {
+        button.addEventListener('click', handleGesture);
+    });
+
+    // Initial Setup
+    document.addEventListener('DOMContentLoaded', () => {
+        setupInitialPriors();
+        initChart();
+        // Set intro as active by default (already done by class in HTML, but good practice)
+        document.getElementById('intro').classList.add('active');
+        navButtons[0].classList.add('active');
+    });
+
+</script>
+</body>
+</html>
