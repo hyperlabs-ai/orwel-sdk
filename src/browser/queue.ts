@@ -114,50 +114,39 @@ export function createQueueManager(
     logger.debug("Flushing event queue", { count: queue.length });
     let sentCount = 0;
     
-    const initialQueueLength = queue.length; // To avoid infinite loop if api.send is always false
-    let processedInLoop = 0;
+    // Create a copy of the current queue and clear the original
+    const eventsToProcess = [...queue];
+    queue.length = 0;
 
-    while (queue.length > 0 && checkCircuitBreaker() && processedInLoop < initialQueueLength * (MAX_FAILURES + 1)) {
-      const evt = queue.shift();
-      processedInLoop++;
-
-      if (evt) {
-        const result = await api.send(evt);
-        if (result) {
-          sentCount++;
-          if (evt.type === "session") {
-            sessionManager.setPendingUpdate(false);
-          }
-          failureCount = 0; // Reset failure count on success
-        } else { // Event send failed
-          failureCount++;
-          lastFailureTime = Date.now();
-
-          if (!evt.__retryCount) evt.__retryCount = 0;
-
-          if (evt.__retryCount < MAX_FAILURES) {
-            evt.__retryCount++;
-            if (evt.type === "session") {
-              queue.unshift(evt); // Re-queue session events at the FRONT
-              logger.debug("Requeuing session event at front for retry", { retry: evt.__retryCount, sessionId: (evt as any).sessionData?.id });
-            } else {
-              queue.push(evt);    // Re-queue other events at the END
-              logger.debug("Requeuing event at end for retry", { type: evt.type, retry: evt.__retryCount, eventId: (evt as any).event?.id });
-            }
-          } else {
-            logger.warning("Dropping event after max retries", { type: evt.type, eventId: (evt as any).event?.id, sessionId: (evt as any).sessionData?.id });
-          }
-        }
-      }
-
+    // Process each event only once without retries
+    for (const evt of eventsToProcess) {
       if (!checkCircuitBreaker()) {
+        // If circuit breaker trips, add remaining events back to queue
+        queue.push(...eventsToProcess.slice(eventsToProcess.indexOf(evt)));
         logger.warning("Circuit breaker tripped - pausing event processing", {
           failureCount,
           remainingEvents: queue.length
         });
-        // Events that were shifted but not processed due to circuit breaker
-        // are already out of the queue. If they were re-added, they are in.
         break;
+      }
+
+      const result = await api.send(evt);
+      if (result) {
+        sentCount++;
+        if (evt.type === "session") {
+          sessionManager.setPendingUpdate(false);
+        }
+        failureCount = 0; // Reset failure count on success
+      } else { // Event send failed
+        failureCount++;
+        lastFailureTime = Date.now();
+        
+        // Failed events are put back in the queue for next flush
+        queue.push(evt);
+        logger.debug("Event sending failed, will retry in next flush", { 
+          type: evt.type, 
+          eventId: (evt as any).event?.id 
+        });
       }
     }
     
