@@ -32,6 +32,7 @@ The `init()` call should be placed:
 - **React**: In your root component (e.g., `App.js`) or initialization component
 - **Next.js**: In `_app.js` or root layout
 - **Vue**: In `main.js` before mounting the app
+- **Svelte**: In `src/routes/+layout.svelte` or `src/routes/+page.svelte`
 - **Plain HTML**: In `<head>` or early in `<body>`
 
 ### State Management
@@ -270,6 +271,14 @@ The form tracker generates the following events:
   - Removed from the DOM
   - Hidden or not visible for more than 10 seconds
   - When navigating to other pages
+
+### Form Abandonment
+
+The SDK automatically tracks form abandonment when a user:
+- Spends at least 10 seconds on the form
+- Interacts with the form in the last 30 minutes
+- Has filled at least one field
+- Has changed at least one field
 
 ## 🔍 Monitoring Features
 
