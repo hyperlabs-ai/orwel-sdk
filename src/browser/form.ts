@@ -43,6 +43,13 @@ interface FormData {
   hasInteracted: boolean;
   mutationObserver?: MutationObserver;
   intersectionObserver?: IntersectionObserver;
+  // Store references to event listeners for proper cleanup
+  listeners: {
+    focus?: (event: Event) => void;
+    blur?: (event: Event) => void;
+    change?: (event: Event) => void;
+    submit?: (event: SubmitEvent) => void;
+  };
 }
 
 export function createFormTracker(
@@ -54,6 +61,11 @@ export function createFormTracker(
 ): FormTracker {
   // Store all tracked forms
   const trackedForms = new Map<HTMLFormElement, FormData>();
+  
+  // Store global listener references for proper cleanup
+  let globalListenersSetup = false;
+  let beforeUnloadListener: (() => void) | null = null;
+  let visibilityChangeListener: (() => void) | null = null;
 
   // Help extract field metadata consistently
   const getFieldMetadata = (field: HTMLElement) => {
@@ -117,15 +129,39 @@ export function createFormTracker(
     };
   };
 
+  // Helper to check if element should be tracked
+  const isTrackableField = (element: Element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement => {
+    if (!element) return false;
+    
+    const tagName = element.tagName.toLowerCase();
+    const validTags = ['input', 'select', 'textarea'];
+    
+    if (!validTags.includes(tagName)) return false;
+    
+    // Skip hidden inputs and buttons (except submit buttons which we handle differently)
+    if (tagName === 'input') {
+      const input = element as HTMLInputElement;
+      const type = input.type.toLowerCase();
+      
+      // Skip these input types as they don't need focus/input tracking
+      const skipTypes = ['hidden', 'submit', 'button', 'reset', 'image'];
+      if (skipTypes.includes(type)) return false;
+    }
+    
+    return true;
+  };
+
   // Event handlers
   const handleFocus = (event: FocusEvent) => {
     const field = event.target as HTMLElement;
-    if (!field || !(field instanceof Element)) return;
+    if (!isTrackableField(field)) return;
 
     const form = field.closest("form");
     if (!form || !trackedForms.has(form)) return;
 
     const formData = trackedForms.get(form)!;
+    
+    // Only update interaction state if this is actually a meaningful interaction
     formData.hasInteracted = true;
     formData.lastActiveTime = Date.now();
 
@@ -148,7 +184,7 @@ export function createFormTracker(
 
   const handleBlur = (event: FocusEvent) => {
     const field = event.target as HTMLElement;
-    if (!field || !(field instanceof Element)) return;
+    if (!isTrackableField(field)) return;
 
     const form = field.closest("form");
     if (!form || !trackedForms.has(form)) return;
@@ -156,8 +192,9 @@ export function createFormTracker(
     const formData = trackedForms.get(form)!;
     formData.lastActiveTime = Date.now();
 
-    // Check if field has value
-    const hasValue = (field as HTMLInputElement).value?.trim().length > 0;
+    // Check if field has meaningful value
+    const fieldValue = (field as HTMLInputElement).value?.trim() || '';
+    const hasValue = fieldValue.length > 0;
 
     if (hasValue) {
       // Mark field as filled
@@ -165,8 +202,10 @@ export function createFormTracker(
         field.id || (field as HTMLInputElement).name || `field_${Date.now()}`;
       formData.filledFields.add(fieldId);
 
-      // Track input if option enabled
-      if (formData.options.trackInput) {
+      // Only track input if option enabled and we haven't already tracked this field's input
+      if (formData.options.trackInput && !formData.filledFields.has(fieldId + '_tracked')) {
+        formData.filledFields.add(fieldId + '_tracked'); // Mark as tracked to avoid duplicates
+        
         const metadata = getFormMetadata(form, formData);
         const fieldMeta = getFieldMetadata(field);
 
@@ -174,6 +213,7 @@ export function createFormTracker(
           ...metadata,
           ...fieldMeta,
           has_value: true,
+          field_value_length: fieldValue.length,
         });
       }
     }
@@ -181,7 +221,7 @@ export function createFormTracker(
 
   const handleChange = (event: Event) => {
     const field = event.target as HTMLElement;
-    if (!field || !(field instanceof Element)) return;
+    if (!isTrackableField(field)) return;
 
     const form = field.closest("form");
     if (!form || !trackedForms.has(form)) return;
@@ -200,9 +240,13 @@ export function createFormTracker(
       const metadata = getFormMetadata(form, formData);
       const fieldMeta = getFieldMetadata(field);
 
+      const fieldValue = (field as HTMLInputElement).value?.trim() || '';
+
       track("form_change", {
         ...metadata,
         ...fieldMeta,
+        has_value: fieldValue.length > 0,
+        field_value_length: fieldValue.length,
       });
     }
   };
@@ -287,50 +331,84 @@ export function createFormTracker(
     }
   };
 
-  // Sets up page visibility and beforeunload listeners to detect form abandonment
-  const setupGlobalListeners = () => {
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-  };
-
-  // Removes global listeners when no forms are being tracked
-  const teardownGlobalListeners = () => {
-    if (trackedForms.size === 0) {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    }
-  };
-
-  // Handle page unload for form abandonment tracking
-  const handleBeforeUnload = () => {
-    // Check each tracked form for abandonment
+  // Complete cleanup function for page navigation
+  const cleanupAllTracking = () => {
+    logger.debug("Cleaning up all form tracking due to page navigation");
+    
+    // Process abandonment for all tracked forms
     trackedForms.forEach((formData, form) => {
       detectAbandon(form, formData);
+      cleanupFormObservers(formData);
+      teardownFormListeners(form, formData);
     });
+    
+    // Clear all tracked forms
+    trackedForms.clear();
+    
+    // Force cleanup of global listeners
+    if (beforeUnloadListener) {
+      window.removeEventListener("beforeunload", beforeUnloadListener);
+      beforeUnloadListener = null;
+    }
+    if (visibilityChangeListener) {
+      document.removeEventListener("visibilitychange", visibilityChangeListener);
+      visibilityChangeListener = null;
+    }
+    window.removeEventListener("popstate", cleanupAllTracking);
+    window.removeEventListener("pagehide", cleanupAllTracking);
+    globalListenersSetup = false;
   };
 
-  // Handle visibility change for form abandonment tracking
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden") {
-      // Check each tracked form for abandonment when user switches tabs
-      trackedForms.forEach((formData, form) => {
-        detectAbandon(form, formData);
-      });
-    }
+  // Sets up page visibility and beforeunload listeners to detect form abandonment
+  const setupGlobalListeners = () => {
+    if (globalListenersSetup) return; // Already setup
+    
+    beforeUnloadListener = () => {
+      // Clean up everything before page unloads
+      cleanupAllTracking();
+    };
+    
+    visibilityChangeListener = () => {
+      if (document.visibilityState === "hidden") {
+        // Check each tracked form for abandonment when user switches tabs
+        trackedForms.forEach((formData, form) => {
+          detectAbandon(form, formData);
+        });
+      }
+    };
+    
+    window.addEventListener("beforeunload", beforeUnloadListener);
+    document.addEventListener("visibilitychange", visibilityChangeListener);
+    
+    // Also listen for popstate (back/forward navigation) and pagehide
+    window.addEventListener("popstate", cleanupAllTracking);
+    window.addEventListener("pagehide", cleanupAllTracking);
+    
+    globalListenersSetup = true;
   };
 
   // Helper to check if a form was abandoned
   const detectAbandon = (form: HTMLFormElement, formData: FormData) => {
     // Only track abandonment if:
     // 1. The option is enabled
-    // 2. The user has interacted with the form
+    // 2. The user has meaningfully interacted with the form (not just focused)
     // 3. The form is not currently being submitted
-    // 4. The form has fields that were changed/focused but not submitted
+    // 4. The form has fields that were actually changed (not just focused)
+    // 5. User spent at least 10 seconds on the form
+    // 6. User interacted with the form in the last 30 minutes (avoid stale forms)
+    
+    const timeOnForm = Date.now() - formData.startTime;
+    const timeSinceLastInteraction = Date.now() - formData.lastActiveTime;
+    const hasChangedFields = formData.changedFields.size > 0;
+    const hasFilledFields = formData.filledFields.size > 0;
+    
     if (
       formData.options.trackAbandon &&
       formData.hasInteracted &&
       !formData.submitting &&
-      (formData.changedFields.size > 0 || formData.focusedFields.size > 0)
+      (hasChangedFields || hasFilledFields) &&
+      timeOnForm > 10000 && // At least 10 seconds
+      timeSinceLastInteraction < 1800000 // Less than 30 minutes since last interaction
     ) {
       const metadata = getFormMetadata(form, formData);
 
@@ -338,21 +416,47 @@ export function createFormTracker(
         ...metadata,
         fields_started: Array.from(formData.focusedFields),
         fields_changed: Array.from(formData.changedFields),
+        fields_filled: Array.from(formData.filledFields),
+        abandon_reason: timeSinceLastInteraction > 300000 ? 'timeout' : 'navigation',
       });
     }
   };
 
   // Set up listeners for a specific form
   const setupFormListeners = (form: HTMLFormElement, formData: FormData) => {
-    // Focus and blur for inputs, textareas and selects
-    form.addEventListener("focus", handleFocus, true);
-    form.addEventListener("blur", handleBlur, true);
+    // Setup event listeners only for the events we want to track
+    if (formData.options.trackFocus) {
+      formData.listeners.focus = (event) => {
+        if (isTrackableField(event.target as Element)) {
+          handleFocus(event as FocusEvent);
+        }
+      };
+      form.addEventListener("focus", formData.listeners.focus, true);
+    }
+    
+    if (formData.options.trackInput) {
+      formData.listeners.blur = (event) => {
+        if (isTrackableField(event.target as Element)) {
+          handleBlur(event as FocusEvent);
+        }
+      };
+      form.addEventListener("blur", formData.listeners.blur, true);
+    }
+    
+    if (formData.options.trackChange) {
+      formData.listeners.change = (event) => {
+        if (isTrackableField(event.target as Element)) {
+          handleChange(event);
+        }
+      };
+      form.addEventListener("change", formData.listeners.change);
+    }
 
-    // Change for all inputs
-    form.addEventListener("change", handleChange, true);
-
-    // Submit for the form itself
-    form.addEventListener("submit", handleSubmit);
+    // Submit listener always goes on the form itself
+    if (formData.options.trackSubmit) {
+      formData.listeners.submit = handleSubmit;
+      form.addEventListener("submit", formData.listeners.submit);
+    }
 
     // Set up auto-untracking if enabled
     if (formData.options.autoUntrack) {
@@ -426,12 +530,23 @@ export function createFormTracker(
     }
   };
 
-  // Remove listeners from a specific form
-  const teardownFormListeners = (form: HTMLFormElement) => {
-    form.removeEventListener("focus", handleFocus, true);
-    form.removeEventListener("blur", handleBlur, true);
-    form.removeEventListener("change", handleChange, true);
-    form.removeEventListener("submit", handleSubmit);
+  // Remove listeners from a specific form using stored references
+  const teardownFormListeners = (form: HTMLFormElement, formData: FormData) => {
+    if (formData.listeners.focus) {
+      form.removeEventListener("focus", formData.listeners.focus, true);
+    }
+    if (formData.listeners.blur) {
+      form.removeEventListener("blur", formData.listeners.blur, true);
+    }
+    if (formData.listeners.change) {
+      form.removeEventListener("change", formData.listeners.change);
+    }
+    if (formData.listeners.submit) {
+      form.removeEventListener("submit", formData.listeners.submit);
+    }
+    
+    // Clear listener references
+    formData.listeners = {};
   };
 
   // Cleanup all observers and timeouts
@@ -460,14 +575,14 @@ export function createFormTracker(
         return;
       }
 
-      // Default options
+      // Default options - more conservative approach
       const defaultOptions: FormOptions = {
-        trackFocus: true,
-        trackInput: true,
-        trackChange: true,
-        trackSubmit: true,
-        trackAbandon: true,
-        autoUntrack: true,
+        trackFocus: false, // Don't track focus by default (too noisy)
+        trackInput: true,  // Track when users input values
+        trackChange: true, // Track when users change values
+        trackSubmit: true, // Always track submissions
+        trackAbandon: true, // Track abandonment
+        autoUntrack: true, // Auto cleanup
       };
 
       // Merge options
@@ -489,6 +604,7 @@ export function createFormTracker(
         filledFields: new Set(),
         submitting: false,
         hasInteracted: false,
+        listeners: {},
       };
 
       // Store form data
@@ -521,13 +637,15 @@ export function createFormTracker(
       cleanupFormObservers(formData);
 
       // Remove listeners
-      teardownFormListeners(form);
+      teardownFormListeners(form, formData);
 
       // Remove from tracked forms
       trackedForms.delete(form);
 
       // Remove global listeners if no forms left
-      teardownGlobalListeners();
+      if (trackedForms.size === 0) {
+        cleanupAllTracking();
+      }
 
       logger.debug("Form tracking stopped", {
         formId: formData.options.formId || form.id || "unnamed_form",
@@ -535,20 +653,8 @@ export function createFormTracker(
     },
 
     untrackAllForms: () => {
-      trackedForms.forEach((formData, form) => {
-        // Check for abandonment
-        detectAbandon(form, formData);
-
-        // Clean up observers
-        cleanupFormObservers(formData);
-
-        // Remove listeners
-        teardownFormListeners(form);
-      });
-
-      // Just to be safe
-      trackedForms.clear();
-      teardownGlobalListeners();
+      // Just use the cleanup function which does everything
+      cleanupAllTracking();
 
       logger.debug("All form tracking stopped");
     },
@@ -568,7 +674,7 @@ export function createFormTracker(
     cleanupFormObservers(formData);
 
     // Remove listeners
-    teardownFormListeners(form);
+    teardownFormListeners(form, formData);
 
     // Remove from tracked forms
     trackedForms.delete(form);

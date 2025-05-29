@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20] - 2025-01-08
+
+### Fixed
+- Fixed form tracking event listeners not being properly cleaned up when navigating between pages
+- Fixed form abandonment detection being too aggressive and triggering false positives
+- Fixed duplicate form events being tracked for the same field interactions
+- Improved event listener cleanup using stored references instead of anonymous functions
+
+### Improved
+- Enhanced form field filtering to only track relevant input elements (input, select, textarea)
+- Reduced event noise by excluding non-trackable fields (hidden, submit, button, reset, image)
+- Made form abandonment detection more intelligent with time-based and interaction-based conditions
+- Changed default trackFocus option to false to reduce excessive event tracking
+- Better form metadata collection with field value length and interaction context
+
+### Added
+- Complete cleanup function for proper form tracking teardown on page navigation
+- Additional navigation event listeners (popstate, pagehide) for comprehensive cleanup
+- Form interaction validation requiring minimum 10 seconds engagement and meaningful changes
+- Enhanced abandonment detection with timeout vs navigation reason classification
+- Stored event listener references for reliable cleanup and memory management
+
+### Optimized
+- More conservative default form tracking options to reduce unnecessary events
+- Smart form abandonment detection that only triggers for meaningful user interactions
+- Improved memory management with proper observer and listener cleanup
+- Better performance through selective event listener attachment based on enabled options
+
 ## [1.0.19] - 2025-05-22
 
 ### Fixed
