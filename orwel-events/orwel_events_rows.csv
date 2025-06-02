@@ -1,0 +1,64 @@
+id,code,category,description,needs,severity
+46962b82-682b-4b67-86e0-851b83558132,logout,auth,User logged out of their account,,1
+4e62a7b1-d481-4c99-9e53-22c3ab48069c,complete_profile,auth,User completed their profile information,,1
+05fc278b-b5e7-4765-8835-8484ab087892,verify_email,auth,User verified their email address,,1
+aee601fd-b2fa-4457-a1b9-99fd639dac49,join_group,auth,User joined a group or community,,1
+ec9c074c-7094-41b6-a916-bea4a31d3038,login,auth,User logged into their account,,1
+c64aa6ac-0442-471a-8fe8-4f024429dacf,signup,auth,User created a new account,,2
+28c7c149-f274-4665-bd87-6d2c32497044,chat_opened,communication,User opened a chat window,,1
+602f8dc1-136e-40ce-b42f-4a72382064af,chat_message_sent,communication,User sent a message in chat,,1
+5be64ef7-55dc-4b71-88ea-9f2b39e6b37d,milestone_reached,conversion,User reached a specific milestone,,1
+776fc864-e375-4006-9af4-f46ac8233ddf,optimize_personalization_impression,conversion,User received a personalized experience,,1
+7d290342-3215-40b0-b39f-d874cef1fedf,conversion_custom,conversion,Custom conversion event occurred,,1
+3aa27f3a-235f-4fce-af54-8c45df63d5f3,optimize_experiment_impression,conversion,User was exposed to an A/B test,,1
+77b7c641-73df-4f2f-a2c1-22f6f50567c6,select_promotion,conversion,User selected a promotion,,1
+c67780c5-2799-4eec-9f48-c6caaa641f0c,view_promotion,conversion,User viewed a promotion,,1
+65ac0f7a-4d8f-41b5-b847-f1977ff52b83,share,conversion,User shared content externally,,1
+9d5d3523-2d0d-4825-a9a8-60b1eaf64d75,waitlist,conversion,New user register to waitlist,,3
+721ad0ab-3b7b-4c67-88b3-05ce1c4e05fc,generate_lead,conversion,A new lead was generated,,3
+a7b22e9a-835c-4f23-a41e-978b5adf2bc2,set_checkout_option,ecommerce,"User selected a checkout option (e.g., shipping method)",,1
+282134bd-7a48-44f4-a5b5-952d8a8768c8,checkout_progress,ecommerce,User proceeded to the next checkout step,,1
+038dc815-3def-4707-aa9b-f399612a43d7,begin_checkout,ecommerce,User started the checkout process,,1
+a54943b0-17dc-4526-97b4-dda1db74606c,remove_from_cart,ecommerce,User removed a product from the cart,,1
+ef4ca1b1-3fb7-4640-870f-a6132a00de55,add_to_cart,ecommerce,User added a product to the shopping cart,,1
+307de143-dfc8-4c4f-9401-dd58579058b8,select_item,ecommerce,User selected a specific item from a list,,1
+a0805e29-861c-4b40-95e8-8ff66d27410f,view_promotion,ecommerce,User viewed a promotion,,1
+145e7895-0753-47ea-8503-ea26af0176e0,select_promotion,ecommerce,User selected a promotion,,1
+fd46271b-3cf4-4288-9ef2-c96a3b8268bf,refund,ecommerce,A refund was issued for a purchase,,1
+7503e24f-ac23-4b17-8a98-7a1315bc33ca,dd_payment_info,ecommerce,User provided payment details,,1
+3e666e68-7928-4742-ae12-739cad432b06,view_cart,ecommerce,User viewed their shopping cart,,1
+1e82594b-5b75-42cf-b06a-f1145f9f5796,view_item,ecommerce,User viewed a specific product,,1
+ec42800d-add2-48ed-9176-2ab8730f4c11,view_item_list,ecommerce,User viewed a list of products,,1
+7d52b0c3-12b0-4879-9f52-3568e2bf40bb,add_shipping_info,ecommerce,User entered shipping information,,2
+540e417e-8939-480f-a45d-075d593db1fc,purchase,ecommerce,User completed a purchase,,3
+b7ac6943-316e-4ee9-be3c-ab74c082d844,survey_submitted,feedback,User submitted a survey,,5
+ab6c86db-01ee-41a0-a91f-74104af1d228,feedback_submitted,feedback,User submitted feedback,,5
+5d7045dc-43c9-431b-98da-d3d6e565ad42,form_input,form,User entered data in a form field,,1
+23df59dc-626a-44da-9c4d-65255a2fffe8,form_change,form,"User changed a form field (input, select, etc.)",,1
+19e65564-4ea0-42c1-8b0e-ff8837c87b19,form_submit_attempt,form,User attempted to submit the form,,1
+6090c0de-ff04-4b37-ab8e-2c64ce628e16,form_submit_error,form,Form failed to submit due to validation or API error,,1
+44a25a28-c90c-4911-89ae-32cd665579f4,form_submit_success,form,"Form submitted successfully (e.g., signup)",,1
+f5504b6e-3dce-415c-965b-49b74f68e833,form_focus,form,User focused on a form input field,,1
+52ee860b-68c2-4f06-a612-86e48bc59b96,form_abandon,form,User started the form but left before submitting,,2
+03e35bf2-970e-4b6d-b806-e2d09244d772,earn_virtual_currency,gamification,User earned virtual currency,,1
+2545e1fd-5e0c-45d6-9525-c0a0cfbcb55d,spend_virtual_currency,gamification,User spent virtual currency,,1
+e76173ca-882b-4ced-9e21-bc05b4e7c0ad,audio_play,media,User started an audio file,,1
+b1bca6f3-29eb-46ba-9bdd-c1b32db93f86,video_play,media,User started a video,,1
+640d1a52-c31e-47ad-9593-f8baecaa5930,video_progress,media,User reached a certain point in a video,,1
+a9291ebc-7e66-4cc4-9c5f-2d17c2073db1,video_complete,media,User finished watching a video,,1
+f3935683-6f2e-4398-ab19-46d1937f0916,scroll,navigation,User scrolled through the page,"{""depth"": ""int ex. 80""}",1
+8ec94bfe-18fa-499c-b9e5-bb7c341f8986,time_on_screen,navigation,Time an element stayed visible on screen,,1
+4cdc5c39-856a-43f0-ad1a-3ea72722edea,hover,navigation,User hovered over an element,,1
+91f86b79-ca00-4b18-bf76-6d09bece96f7,select_content,navigation,User selected a piece of content,,1
+862c128f-fd1c-4eac-a4d3-e21ab1cb1d8c,view_search_results,navigation,User saw the search results page,,1
+61249499-3dc1-4ab0-90af-eed60633ee88,search,navigation,User performed a search query,,1
+eaa171ab-334a-4441-a4fa-f09ef29a3034,click,navigation,User clicked on an element,,1
+ef7d772d-9034-4f46-a120-73a8a5da7830,page_view,navigation,User loaded a page,,1
+8cadedb6-e96e-45da-ada7-2b7f06a43c14,element_visible,navigation,An element became visible to the user,,1
+770345f9-9650-4cc1-b9ae-e129336c8a7a,notification_received,notification,A push notification was received,,1
+b3e7ac66-5c46-45f2-a324-637f84a6f8ef,notification_clicked,notification,User clicked on a notification,,1
+baabc962-aaa8-45e9-9f12-acaa00388d1d,timing_complete,technical,A timed event completed,,1
+1e3d9f5e-f550-41df-a2c2-5c2ee7d3f902,js_error,technical,JavaScript error occurred on the client,,1
+b1550131-962b-466e-bcaf-137f604bbe40,exception,technical,An exception or error occurred in the app,,1
+24e776ee-7060-4354-921e-49bf7def7b76,file_download,technical,User downloaded a file,,1
+60032fb7-ab58-4ad1-a237-d10a30dfc212,network_request_failed,technical,A network request failed,,1
