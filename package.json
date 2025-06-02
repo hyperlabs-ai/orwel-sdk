@@ -1,6 +1,6 @@
 {
   "name": "orwel",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": "CHANGELOG.md",
   "description": "Human-behavior event tracking SDK",
   "main": "./dist/orwel.umd.js",
@@ -19,7 +19,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --emitDeclarationOnly",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "orwel",
@@ -44,8 +47,17 @@
     "web-vitals": "^3.5.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "@babel/preset-typescript": "^7.23.3",
+    "@types/jest": "^29.5.12",
     "@types/node": "^18.16.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.2",
     "typescript": "^5.8.3",
     "vite": "^5.0.0"
   }
 }
+

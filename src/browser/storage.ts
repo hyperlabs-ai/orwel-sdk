@@ -1,5 +1,6 @@
 import { OrwelEvent, Visitor, Session } from "../types";
 import { createLogger } from "../utils";
+import { encrypt, decrypt, encryptObject, decryptObject, isEncrypted } from "../utils/encryption";
 
 /**
  * Creates a storage manager for handling browser persistence
@@ -51,71 +52,149 @@ export function createStorage(
     }
   };
 
-  // Cargar la cola desde localStorage
-  const loadQueue = (): OrwelEvent[] => {
+  // Cargar la cola desde localStorage con soporte para encriptación
+  const loadQueue = async (): Promise<OrwelEvent[]> => {
     try {
       const saved = getItem(keys.QUEUE);
-      const events = saved ? JSON.parse(saved) : [];
-      logger.debug("Queue loaded from storage", { count: events.length });
-      return events;
+      if (!saved) {
+        logger.debug("No queue found in storage");
+        return [];
+      }
+      
+      // Verificar si los datos están encriptados
+      if (isEncrypted(saved)) {
+        const decrypted = await decrypt(saved);
+        if (!decrypted) {
+          logger.error("Failed to decrypt queue from storage");
+          return [];
+        }
+        const events = JSON.parse(decrypted);
+        logger.debug("Queue loaded and decrypted from storage", { count: events.length });
+        return events;
+      } else {
+        // Datos no encriptados (compatibilidad con versiones anteriores)
+        const events = JSON.parse(saved);
+        logger.debug("Queue loaded from storage (unencrypted)", { count: events.length });
+        return events;
+      }
     } catch (error) {
       logger.error("Failed to load queue from storage", error);
       return [];
     }
   };
 
-  // Guardar la cola en localStorage
-  const saveQueue = (queue: OrwelEvent[]): void => {
+  // Guardar la cola en localStorage con encriptación
+  const saveQueue = async (queue: OrwelEvent[]): Promise<void> => {
     try {
-      setItem(keys.QUEUE, JSON.stringify(queue));
-      logger.debug("Queue saved to storage", { count: queue.length });
+      const jsonString = JSON.stringify(queue);
+      const encrypted = await encrypt(jsonString);
+      
+      if (encrypted) {
+        setItem(keys.QUEUE, encrypted);
+        logger.debug("Queue encrypted and saved to storage", { count: queue.length });
+      } else {
+        // Fallback sin encriptación si falla
+        setItem(keys.QUEUE, jsonString);
+        logger.warning("Queue saved to storage without encryption", { count: queue.length });
+      }
     } catch (error) {
       logger.error("Failed to save queue to storage", error);
     }
   };
 
-  // Cargar el visitante desde localStorage
-  const loadVisitor = (): Visitor => {
+  // Cargar el visitante desde localStorage con soporte para encriptación
+  const loadVisitor = async (): Promise<Visitor> => {
     try {
       const saved = getItem(keys.VISITOR);
-      return saved ? JSON.parse(saved) : {};
+      if (!saved) {
+        return {};
+      }
+      
+      // Verificar si los datos están encriptados
+      if (isEncrypted(saved)) {
+        const decrypted = await decrypt(saved);
+        if (!decrypted) {
+          logger.error("Failed to decrypt visitor from storage");
+          return {};
+        }
+        const visitor = JSON.parse(decrypted);
+        logger.debug("Visitor loaded and decrypted from storage", { id: visitor.id });
+        return visitor;
+      } else {
+        // Datos no encriptados (compatibilidad con versiones anteriores)
+        const visitor = JSON.parse(saved);
+        logger.debug("Visitor loaded from storage (unencrypted)", { id: visitor.id });
+        return visitor;
+      }
     } catch (error) {
       logger.error("Failed to load visitor from storage", error);
       return {};
     }
   };
 
-  // Guardar el visitante en localStorage
-  const saveVisitor = (visitor: Visitor): void => {
+  // Guardar el visitante en localStorage con encriptación
+  const saveVisitor = async (visitor: Visitor): Promise<void> => {
     try {
-      setItem(keys.VISITOR, JSON.stringify(visitor));
-      logger.debug("Visitor saved to storage", { id: visitor.id });
+      const jsonString = JSON.stringify(visitor);
+      const encrypted = await encrypt(jsonString);
+      
+      if (encrypted) {
+        setItem(keys.VISITOR, encrypted);
+        logger.debug("Visitor encrypted and saved to storage", { id: visitor.id });
+      } else {
+        // Fallback sin encriptación si falla
+        setItem(keys.VISITOR, jsonString);
+        logger.warning("Visitor saved to storage without encryption", { id: visitor.id });
+      }
     } catch (error) {
       logger.error("Failed to save visitor to storage", error);
     }
   };
 
-  // Cargar la sesión desde localStorage
-  const loadSession = (): { data: Session; isNew: boolean } => {
+  // Cargar la sesión desde localStorage con soporte para encriptación
+  const loadSession = async (): Promise<{ data: Session; isNew: boolean }> => {
     try {
       const saved = getItem(keys.SESSION);
-      if (saved) {
+      if (!saved) {
+        return { data: {} as Session, isNew: true };
+      }
+      
+      // Verificar si los datos están encriptados
+      if (isEncrypted(saved)) {
+        const decrypted = await decrypt(saved);
+        if (!decrypted) {
+          logger.error("Failed to decrypt session from storage");
+          return { data: {} as Session, isNew: true };
+        }
+        const parsedSession = JSON.parse(decrypted) as Session;
+        logger.debug("Session loaded and decrypted from storage", { id: parsedSession.id });
+        return { data: parsedSession, isNew: false };
+      } else {
+        // Datos no encriptados (compatibilidad con versiones anteriores)
         const parsedSession = JSON.parse(saved) as Session;
-        logger.debug("Session loaded from storage");
+        logger.debug("Session loaded from storage (unencrypted)", { id: parsedSession.id });
         return { data: parsedSession, isNew: false };
       }
     } catch (error) {
       logger.warning("Failed to load session from storage", error);
+      return { data: {} as Session, isNew: true };
     }
-    
-    return { data: {} as Session, isNew: true };
   };
 
-  // Guardar la sesión en localStorage
-  const saveSession = (session: Session): void => {
+  // Guardar la sesión en localStorage con encriptación
+  const saveSession = async (session: Session): Promise<void> => {
     try {
-      setItem(keys.SESSION, JSON.stringify(session));
-      logger.debug("Session saved to storage", { id: session.id });
+      const jsonString = JSON.stringify(session);
+      const encrypted = await encrypt(jsonString);
+      
+      if (encrypted) {
+        setItem(keys.SESSION, encrypted);
+        logger.debug("Session encrypted and saved to storage", { id: session.id });
+      } else {
+        // Fallback sin encriptación si falla
+        setItem(keys.SESSION, jsonString);
+        logger.warning("Session saved to storage without encryption", { id: session.id });
+      }
     } catch (error) {
       logger.error("Failed to save session to storage", error);
     }
@@ -129,4 +208,4 @@ export function createStorage(
     loadSession,
     saveSession
   };
-} 
+}

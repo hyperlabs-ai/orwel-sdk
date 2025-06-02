@@ -514,6 +514,88 @@ The SDK implements several privacy and security measures:
 - Cookie law compatible
 - Privacy policy friendly
 
+## 🔐 Security Features (New in v1.2.0)
+
+The SDK now includes enhanced security features to protect user data:
+
+### Data Encryption
+All locally stored data is now encrypted:
+- Uses Web Crypto API when available
+- Implements fallback encryption for older browsers
+- Encrypts visitor data, session information, and event queue
+
+```typescript
+// All data is automatically encrypted - no additional code required
+orwel.identify({
+  email: 'user@example.com',  // Stored encrypted in localStorage
+  plan: 'premium'
+})
+
+orwel.track('purchase_completed', {
+  order_id: '12345',          // Events in queue are encrypted
+  amount: 99.99
+})
+```
+
+### Input Validation
+Strict validation for all data:
+- Validates event codes, property names and values
+- Prevents injection attacks and malformed data
+- Sanitizes error messages to avoid exposing sensitive information
+
+### Error Handling
+Improved error handling throughout the SDK:
+- Standardized error messages
+- Detailed error reporting for debugging
+- Privacy-focused error sanitization
+
+## ⚡ Performance Improvements (New in v1.2.0)
+
+### Chunk Processing
+Large operations are now processed in chunks:
+- Prevents UI freezing during large data operations
+- Improves user experience during event processing
+- Optimizes memory usage for large datasets
+
+### BeforeUnload Optimization
+Improved handling of page unload events:
+- Uses `navigator.sendBeacon` when available
+- Falls back to synchronous XHR when necessary
+- Ensures maximum data delivery during page transitions
+
+### Queue Management
+Enhanced event queue management:
+- Automatic cleanup of old events (7-day retention)
+- Improved handling of queue limits
+- Better memory efficiency
+
+## 🔄 Reliability Enhancements (New in v1.2.0)
+
+### Retry Strategy
+Sophisticated retry mechanism for failed operations:
+- Exponential backoff with jitter
+- Circuit breaker pattern to prevent overloading servers
+- Configurable retry policies
+
+```typescript
+// Configuration options for retry behavior
+orwel.init({
+  apiKey: 'your-api-key',
+  retryOptions: {
+    maxRetries: 5,              // Maximum retry attempts
+    initialDelay: 300,          // Initial delay in ms
+    maxDelay: 10000,            // Maximum delay cap in ms
+    jitterFactor: 0.2           // Randomness factor (0-1)
+  }
+})
+```
+
+### Async Operations
+Improved handling of asynchronous operations:
+- Better promise management
+- Timeout handling for long-running operations
+- Graceful degradation for slow connections
+
 ## 📄 License
 
 MIT — built with ✨ by orwel.io
@@ -525,5 +607,3 @@ Need help? Check out:
 - [API Reference](https://api.orwel.io)
 - [GitHub Issues](https://github.com/hyperlabs-ai/orwel-sdk/issues)
 - [Community Forum](https://community.orwel.io)
-
-

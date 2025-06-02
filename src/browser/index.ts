@@ -4,10 +4,12 @@ import { startMonitoring } from "../monitoring";
 import { createStorage } from "./storage";
 import { createVisitorManager } from "./visitor";
 import { createSessionManager } from "./session";
-import { createApiClient } from "./api";
+import { createApiClient } from "./api-client";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
 import { createAutoEventDetection } from "../auto-detection";
+import { validateEvent, validateProperties, sanitizeErrorMessage } from "../utils/validation";
+import { withTimeout } from "../utils/async-operations";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -93,7 +95,7 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK v1.1.0", {
+      logger.info("Initializing Orwel SDK v1.2.0", {
         debug: opts.debug,
         verbose: opts.verbose,
         autoEventDetection: opts.autoEventDetection
@@ -146,36 +148,8 @@ export function createBrowserImplementation(): Orwel {
           status: 'closed'
         }, true); 
         
-        const pendingEvents = queueManager.getQueue();
-        if (pendingEvents.length > 0) {
-          const hardcodedApiUrl = "https://api.orwel.io/ingest"; // Use the hardcoded URL from api.ts
-          
-          if (navigator.sendBeacon) {
-            try {
-              navigator.sendBeacon(hardcodedApiUrl, JSON.stringify(pendingEvents));
-              logger.debug("Events sent via sendBeacon on beforeunload");
-            } catch (e) {
-              logger.error("Error using sendBeacon", { error: e });
-            }
-          } else {
-            logger.debug("sendBeacon not available, using sync XHR for beforeunload flush");
-            try {
-              const xhr = new XMLHttpRequest();
-              xhr.open("POST", hardcodedApiUrl, false); 
-              xhr.setRequestHeader("Content-Type", "application/json");
-              // Config is still needed for apiKey
-              if (config && config.apiKey) {
-                xhr.setRequestHeader("X-Orwel-Key", config.apiKey);
-              } else {
-                logger.warning("Cannot send X-Orwel-Key header for sync XHR: apiKey or config missing");
-              }
-              xhr.send(JSON.stringify(pendingEvents));
-              logger.debug("Events sent via sync XHR on beforeunload");
-            } catch (e) {
-              logger.error("Error using sync XHR for beforeunload flush", { error: e });
-            }
-          }
-        }
+        // Usar el nuevo método flushBeforeUnload para enviar eventos pendientes
+        queueManager.flushBeforeUnload();
       });
       
       window.addEventListener("visibilitychange", () => {
@@ -209,37 +183,61 @@ export function createBrowserImplementation(): Orwel {
     },
     
     identify: (traits: Record<string, any> = {}) => {
-      return visitorManager.identify(traits);
+      try {
+        // Validar propiedades del visitante
+        const validatedTraits = validateProperties(traits);
+        return visitorManager.identify(validatedTraits);
+      } catch (error) {
+        const errorMessage = sanitizeErrorMessage(error);
+        logger.error(`Validation error in identify: ${errorMessage}`, { error });
+        return { success: false, error: errorMessage };
+      }
     },
     
     track: (code: string, properties = {}) => {
-      const eventId = generateUUID();
-      logger.info("Tracking event", { code, eventId });
+      try {
+        // Validar código de evento y propiedades
+        const validatedProperties = validateEvent('track', code, properties);
+        const eventId = generateUUID();
+        logger.info("Tracking event", { code, eventId });
 
-      // Capturar información completa de la URL
-      const locationData = {
-        path: window.location.pathname,
-        url: window.location.href,
-        hash: window.location.hash,
-        search: window.location.search,
-        hostname: window.location.hostname
-      };
-      
-      queueManager.addEvent({
-        type: "track", 
-        code,
-        location: locationData,
-        properties,
-        event: { id: eventId, code, source: "orwel-sdk" } ,
-        timestamp: new Date().toISOString()
-      });
-      
-      logger.success("Event tracked", { code, eventId });
-      return { success: true, eventId };
+        // Capturar información completa de la URL
+        const locationData = {
+          path: window.location.pathname,
+          url: window.location.href,
+          hash: window.location.hash,
+          search: window.location.search,
+          hostname: window.location.hostname
+        };
+        
+        queueManager.addEvent({
+          type: "track", 
+          code,
+          location: locationData,
+          properties: validatedProperties,
+          event: { id: eventId, code, source: "orwel-sdk" },
+          timestamp: new Date().toISOString()
+        });
+        
+        logger.success("Event tracked", { code, eventId });
+        return { success: true, eventId };
+      } catch (error) {
+        const errorMessage = sanitizeErrorMessage(error);
+        logger.error(`Validation error in track: ${errorMessage}`, { error });
+        return { success: false, error: errorMessage };
+      }
     },
     
     session: (properties: Record<string, any> = {}) => {
-      return sessionManager.updateSession(properties);
+      try {
+        // Validar propiedades de sesión
+        const validatedProperties = validateProperties(properties);
+        return sessionManager.updateSession(validatedProperties);
+      } catch (error) {
+        const errorMessage = sanitizeErrorMessage(error);
+        logger.error(`Validation error in session: ${errorMessage}`, { error });
+        return { success: false, error: errorMessage };
+      }
     },
     
     monitor: (options = {}) => {
@@ -254,7 +252,16 @@ export function createBrowserImplementation(): Orwel {
     },
     
     flush: async () => {
-      return queueManager.flush();
+      try {
+        // Usar timeout para evitar bloquear demasiado tiempo
+        return await withTimeout(
+          () => queueManager.flush(),
+          5000 // 5 segundos máximo para flush
+        );
+      } catch (error) {
+        logger.error("Flush operation timed out", { error });
+        return { success: false, error: "Operation timed out" };
+      }
     },
     
     form: (formElement: HTMLFormElement, options?: FormOptions) => {
@@ -298,4 +305,4 @@ interface Session {
   memory?: Record<string, any>;
   networkRequests?: Array<Record<string, any>>;
   customProperties?: Record<string, any>;
-} 
+}

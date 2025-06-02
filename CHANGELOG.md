@@ -1,200 +1,63 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## 1.2.0 (2025-06-02)
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Mejoras de Seguridad
 
-## [1.0.20] - 2025-01-08
+- **Encriptación de datos**: Implementado módulo de encriptación para datos almacenados localmente
+  - Utiliza Web Crypto API cuando está disponible
+  - Implementa fallback para navegadores sin soporte
+  - Encripta datos de visitantes, sesiones y cola de eventos
 
-### Fixed
-- Fixed form tracking event listeners not being properly cleaned up when navigating between pages
-- Fixed form abandonment detection being too aggressive and triggering false positives
-- Fixed duplicate form events being tracked for the same field interactions
-- Improved event listener cleanup using stored references instead of anonymous functions
+- **Validación estricta de entrada**: Añadido módulo de validación para sanitizar y validar datos
+  - Validación de códigos de eventos, propiedades y datos de visitantes
+  - Sanitización de mensajes de error para evitar exponer información sensible
+  - Implementación de límites estrictos para tamaños de datos
 
-### Improved
-- Enhanced form field filtering to only track relevant input elements (input, select, textarea)
-- Reduced event noise by excluding non-trackable fields (hidden, submit, button, reset, image)
-- Made form abandonment detection more intelligent with time-based and interaction-based conditions
-- Changed default trackFocus option to false to reduce excessive event tracking
-- Better form metadata collection with field value length and interaction context
+### Mejoras de Rendimiento
 
-### Added
-- Complete cleanup function for proper form tracking teardown on page navigation
-- Additional navigation event listeners (popstate, pagehide) for comprehensive cleanup
-- Form interaction validation requiring minimum 10 seconds engagement and meaningful changes
-- Enhanced abandonment detection with timeout vs navigation reason classification
-- Stored event listener references for reliable cleanup and memory management
+- **Procesamiento en chunks**: Implementado procesamiento en chunks para arrays grandes
+  - Evita bloquear el hilo principal durante operaciones largas
+  - Mejora la experiencia del usuario durante envíos masivos de eventos
 
-### Optimized
-- More conservative default form tracking options to reduce unnecessary events
-- Smart form abandonment detection that only triggers for meaningful user interactions
-- Improved memory management with proper observer and listener cleanup
-- Better performance through selective event listener attachment based on enabled options
+- **Optimización de beforeunload**: Mejorado el manejo de eventos durante la descarga de la página
+  - Utiliza sendBeacon cuando está disponible
+  - Implementa fallback a XHR síncrono cuando es necesario
 
-## [1.0.19] - 2025-05-22
+- **Límites y políticas de limpieza**: Implementados límites estrictos para la cola de eventos
+  - Límite de edad para eventos (7 días)
+  - Limpieza automática de eventos antiguos
+  - Mejora en la gestión de cola llena
 
-### Fixed
-- Multiple intents to send events with retry methods and circuitBreaker
+### Mejoras de Fiabilidad
 
-## [1.0.18] - 2025-05-18
+- **Reintentos con backoff exponencial**: Implementada estrategia de reintentos para operaciones fallidas
+  - Backoff exponencial con jitter para evitar tormentas de reintentos
+  - Circuit breaker para evitar sobrecarga del servidor
+  - Configuración flexible de políticas de reintentos
 
-### Added
-- Added request timeout protection (5s) for all API calls
-- Implemented circuit breaker pattern for API request failure protection
-- Added queue size limits (1000 events) with smart event prioritization
-- Added safe monitoring setup with isolated error handling per monitor
+- **Manejo mejorado de errores**: Estandarizado el manejo de errores en todo el SDK
+  - Mensajes de error más descriptivos y útiles
+  - Sanitización de información sensible en mensajes de error
+  - Mejor registro de errores para depuración
 
-### Improved
-- Removed confirmation dialog when navigating away from page
-- Fixed session synchronization to ensure sessions are created before events
-- Enhanced error handling across all SDK operations
-- Improved queue management with session event prioritization
-- Added graceful degradation for monitoring features
-- Better memory management with queue size limits
-- More robust error recovery in network operations
+### Otras Mejoras
 
-### Optimized
-- Implemented smart event dropping when queue is full
-- Added automatic circuit breaker reset after 1 minute
-- Enhanced logging with more detailed error information
-- Improved monitoring initialization with isolated failure handling
-- Better session event handling with priority queuing
+- **Pruebas unitarias**: Añadidas pruebas para los nuevos módulos
+  - Pruebas para encriptación, validación, reintentos y operaciones asíncronas
+  - Configuración de Jest para pruebas automatizadas
 
-### Fixed
-- Fixed potential memory leaks in event queue
-- Improved error handling in monitoring setup
-- Enhanced API call reliability with timeout protection
-- Better handling of network failures with circuit breaker
-- Protected against monitoring setup failures affecting core functionality
+- **Documentación**: Mejorada la documentación interna del código
+  - Comentarios JSDoc para todas las funciones públicas
+  - Ejemplos de uso en comentarios
+  - Explicaciones detalladas de algoritmos complejos
 
-## [1.0.17] - 2025-05-17
+## 1.1.0 (Versión anterior)
 
-### Added
-- Added form tracking functionality with `orwel.form()`
-- Support for tracking form events: focus, input, change, submit, abandon
-- Detailed form interaction analysis with field-level tracking
-- Form submission success/error detection
-- Added form tracking example page
-- Automatic form untracking when forms are removed from DOM or hidden
-- MutationObserver and IntersectionObserver support for smart form tracking
+- Implementación inicial del SDK
+- Soporte para seguimiento de eventos
+- Identificación de visitantes
+- Gestión de sesiones
+- Monitoreo automático
+- Detección automática de eventos
 
-### Improved
-- Expanded TypeScript definitions for better IDE support
-- Enhanced metadata collection for form events
-- Better form abandonment detection with configurable tracking options
-- Memory management for forms through automatic cleanup
-
-## [1.0.16] - 2025-05-16
-
-### Added
-- Added storage availability check for better Safari mobile support
-- Implemented memory-based fallback storage for private browsing mode
-- Added robust error handling for storage operations
-- Added proper session lifecycle management with status tracking
-- Added session timestamps (startedAt, updatedAt, finishedAt)
-- Added TypeScript interfaces for better type safety in session handling
-
-### Fixed
-- Fixed visitor traits not being saved in Safari mobile private browsing
-- Improved storage reliability across all browsers and modes
-- Enhanced error recovery when localStorage is not available
-- Fixed session state management during page unload
-- Fixed synchronous session closure on page exit
-
-### Improved
-- Better error handling and logging for storage operations
-- More resilient visitor identification process
-- Graceful degradation when persistent storage is unavailable
-- Enhanced session tracking with proper lifecycle states
-- More robust session data persistence
-- Improved session state transitions (active → closed)
-
-## [1.0.15] - 2025-05-15
-
-### Refactored
-- Location on each event now tracked
-- Monitoring disabled by default to ignore errors in console
-
-## [1.0.14] - 2025-05-15
-
-### Fixed
-- Removed data sanitization that was causing issues with event payload format
-- Fixed initialization order of internal modules
-- Restored original event payload structure for better API compatibility
-- Improved dependency resolution between internal components
-- Fixed visitor traits handling to match previous working implementation
-
-## [1.0.13] - 2025-05-15
-
-### Added
-- Added UUID dependency for more robust unique ID generation
-- Implemented data sanitization to prevent issues with circular references and non-serializable values
-
-### Refactored
-- Complete modularization of the SDK core
-  - Separated visitor management into dedicated module
-  - Created standalone session handling module
-  - Extracted queue management logic into its own module
-  - Isolated API communication in a dedicated client
-  - Implemented centralized storage module for all persistence operations
-- Improved dependency injection pattern for better testability
-- Enhanced circular dependency resolution between modules
-
-### Optimized
-- Better memory usage through improved module isolation
-- Reduced code duplication across components
-- More consistent error handling across modules
-- Data sanitization for all user-provided inputs to prevent serialization issues
-
-## [1.0.12] - 2025-05-14
-
-### Fixed
-- Fixed track event format to properly structure the event id object
-- Included event code within the event object structure
-- Ensured correct event payload format to prevent 400 Bad Request errors
-
-## [1.0.11] - 2025-05-14
-
-### Optimized
-- Implemented session event buffering, significantly reducing the number of events sent
-- Added event batching for all monitoring modules (web-vitals, performance, network, errors, console)
-- Reduced data collection frequency in Web Vitals (removed reportAllChanges: true)
-- Increased memory monitoring interval to 60 seconds
-- Limited the number of monitored resources to prevent congestion
-
-### Fixed
-- Resolved overload issue caused by multiple session events being sent simultaneously
-- Correctly exported the orwel instance
-- Improved browser memory management
-- Added retry limit for failed network requests to prevent infinite loops
-
-## [1.0.10] - 2025-05-14
-
-### Added
-- Support for Web Vitals (LCP, FID, CLS, TTFB, FCP)
-- New performance metrics for resources and navigation
-
-### Improved
-- Better TypeScript support with complete type definitions
-- More efficient backend event processing
-
-## [1.0.9] - 2025-05-13
-
-### Added
-- Performance monitoring with PerformanceObserver
-- Automatic JavaScript error tracking
-- System to save events in localStorage when offline
-
-### Updated
-- Improved session information collection
-- Bundle size optimization
-
-## [1.0.0] - 2025-05-12
-
-### Added
-- First stable SDK release
-- Core functionalities: track, identify, log
-- Basic performance and error monitoring
-- Compatibility with modern browsers
