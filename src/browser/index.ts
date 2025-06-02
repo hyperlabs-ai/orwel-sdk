@@ -7,6 +7,7 @@ import { createSessionManager } from "./session";
 import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
+import { createAutoEventDetection } from "../auto-detection";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -16,6 +17,7 @@ export function createBrowserImplementation(): Orwel {
   let config: Config = {} as Config;
   let isMonitoring = false;
   let logger = createLogger({ debug: false, verbose: false });
+  let autoDetection: ReturnType<typeof createAutoEventDetection> | null = null;
 
   // Crear el administrador de almacenamiento
   const storage = createStorage(logger);
@@ -91,9 +93,10 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK", {
+      logger.info("Initializing Orwel SDK v1.1.0", {
         debug: opts.debug,
-        verbose: opts.verbose
+        verbose: opts.verbose,
+        autoEventDetection: opts.autoEventDetection
       });
       
       // Inicializar en el orden correcto
@@ -187,7 +190,22 @@ export function createBrowserImplementation(): Orwel {
         orwel.monitor();
       }
       
-      logger.success("Orwel SDK v1.0.18 initialized successfully");
+      // Initialize auto event detection
+      if (opts.autoEventDetection !== false) {
+        logger.info("Auto event detection enabled, initializing detection engine");
+        autoDetection = createAutoEventDetection(
+          orwel,
+          opts.eventDetectionOptions || {},
+          logger
+        );
+        
+        // Initialize asynchronously to avoid blocking
+        autoDetection.initialize().catch(error => {
+          logger.error("Failed to initialize auto event detection", { error });
+        });
+      }
+      
+      logger.success("Orwel SDK initialized successfully");
     },
     
     identify: (traits: Record<string, any> = {}) => {

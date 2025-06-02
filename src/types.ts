@@ -33,6 +33,8 @@ export interface Session {
 export interface Config {
   apiKey: string;
   autoMonitor?: boolean;
+  autoEventDetection?: boolean;
+  eventDetectionOptions?: AutoEventDetectionOptions;
   debug?: boolean;
   verbose?: boolean;
   [key: string]: any;
@@ -67,6 +69,79 @@ export interface OrwelEvent {
   type: string;
   __retryCount?: number;
   [key: string]: any;
+}
+
+// Auto Event Detection Types
+export interface AutoEventDetectionOptions {
+  enabledCategories?: EventCategory[];
+  catalogUpdateInterval?: number;
+  confidenceThreshold?: number;
+  enableCatalogSync?: boolean;
+}
+
+export interface OrwelEventDefinition {
+  id: string;
+  code: string;
+  category: EventCategory;
+  description: string;
+  needs?: string;
+  severity: number;
+}
+
+export type EventCategory = 
+  | 'auth' 
+  | 'ecommerce' 
+  | 'navigation' 
+  | 'form' 
+  | 'media' 
+  | 'conversion' 
+  | 'communication' 
+  | 'technical' 
+  | 'notification' 
+  | 'feedback' 
+  | 'gamification';
+
+export interface DetectionResult {
+  eventCode: string;
+  confidence: number;
+  data: Record<string, any>;
+  trigger: DetectionTrigger;
+  timestamp: number;
+}
+
+export type DetectionTrigger = 
+  | 'dom_event' 
+  | 'url_change' 
+  | 'dom_mutation' 
+  | 'api_response' 
+  | 'behavioral_pattern'
+  | 'visual_pattern';
+
+export interface DetectionStrategy {
+  readonly category: EventCategory;
+  readonly eventCode: string;
+  detect(context: DetectionContext): DetectionResult | null;
+  cleanup?(): void;
+}
+
+export interface DetectionContext {
+  element?: Element;
+  event?: Event;
+  url?: string;
+  mutationRecord?: MutationRecord;
+  pageContext?: PageContext;
+}
+
+export interface PageContext {
+  url: string;
+  pathname: string;
+  title: string;
+  referrer: string;
+  userAgent: string;
+  viewport: {
+    width: number;
+    height: number;
+  };
 }
 
 // Extend global interfaces
