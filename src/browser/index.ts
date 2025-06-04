@@ -93,7 +93,7 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK v1.1.0", {
+      logger.info("Initializing Orwel SDK v1.1.1", {
         debug: opts.debug,
         verbose: opts.verbose,
         autoEventDetection: opts.autoEventDetection
@@ -190,19 +190,35 @@ export function createBrowserImplementation(): Orwel {
         orwel.monitor();
       }
       
-      // Initialize auto event detection
+      // Initialize auto event detection with safety checks
       if (opts.autoEventDetection !== false) {
-        logger.info("Auto event detection enabled, initializing detection engine");
-        autoDetection = createAutoEventDetection(
-          orwel,
-          opts.eventDetectionOptions || {},
-          logger
-        );
-        
-        // Initialize asynchronously to avoid blocking
-        autoDetection.initialize().catch(error => {
-          logger.error("Failed to initialize auto event detection", { error });
-        });
+        try {
+          logger.info('Auto event detection enabled, initializing detection engine');
+          autoDetection = createAutoEventDetection(
+            orwel,
+            opts.eventDetectionOptions || {},
+            logger
+          );
+          
+          // Initialize asynchronously to avoid blocking
+          autoDetection.initialize().catch(error => {
+            logger.error('Failed to initialize auto event detection', { error });
+            // Cleanup if initialization fails
+            if (autoDetection) {
+              try {
+                autoDetection.cleanup();
+              } catch (cleanupError) {
+                logger.error('Error during auto-detection cleanup', { cleanupError });
+              }
+              autoDetection = null;
+            }
+          });
+        } catch (error) {
+          logger.error('Error creating auto event detection', { error });
+          autoDetection = null;
+        }
+      } else {
+        logger.info('Auto event detection disabled');
       }
       
       logger.success("Orwel SDK initialized successfully");
@@ -278,24 +294,3 @@ export function createBrowserImplementation(): Orwel {
 
 // Crear una instancia para uso interno
 export const orwel: Orwel = createBrowserImplementation(); 
-
-interface Session {
-  id: string;
-  status: 'active' | 'closed';
-  startedAt: string;
-  updatedAt?: string;
-  finishedAt?: string;
-  location?: {
-    path: string;
-    url: string;
-    hash: string;
-    search: string;
-    hostname: string;
-  };
-  webVitals?: Record<string, any>;
-  performance?: Record<string, any>;
-  jsErrors?: Array<Record<string, any>>;
-  memory?: Record<string, any>;
-  networkRequests?: Array<Record<string, any>>;
-  customProperties?: Record<string, any>;
-} 

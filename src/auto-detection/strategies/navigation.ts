@@ -64,52 +64,81 @@ export class NavigationDetectionStrategy implements DetectionStrategy {
   }
 
   private detectHover(context: DetectionContext): DetectionResult | null {
-    const { element, event } = context;
-    if (!element || event?.type !== 'mouseenter') return null;
+    try {
+      const { element, event } = context;
+      if (!element || event?.type !== 'mouseenter') return null;
 
-    const elementData = this.analyzeElement(element);
-    if (!elementData.isInteractive) return null;
+      const elementData = this.analyzeElement(element);
+      if (!elementData.isInteractive) return null;
 
-    // Set up hover duration tracking
-    const startTime = Date.now();
-    const timeoutId = window.setTimeout(() => {
-      // Only track meaningful hovers (>500ms)
-      const duration = Date.now() - startTime;
-      if (duration >= 500) {
-        // Process hover event
-        this.logger.debug('Meaningful hover detected', {
-          element: elementData.type,
-          duration
-        });
-      }
-    }, 500);
+      // Set up hover duration tracking with safety checks
+      const startTime = Date.now();
+      
+      const timeoutId = window.setTimeout(() => {
+        try {
+          // Only track meaningful hovers (>500ms)
+          const duration = Date.now() - startTime;
+          if (duration >= 500) {
+            // Process hover event
+            this.logger.debug('Meaningful hover detected', {
+              element: elementData.type,
+              duration
+            });
+          }
+        } catch (timeoutError) {
+          // Ignore timeout callback errors
+        }
+      }, 500);
 
-    this.hoverTimeouts.set(element, timeoutId);
+      this.hoverTimeouts.set(element, timeoutId);
 
-    // Set up mouseleave listener to clear timeout
-    const mouseLeaveHandler = () => {
-      const existingTimeout = this.hoverTimeouts.get(element);
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
+      // Set up mouseleave listener to clear timeout with error handling
+      const mouseLeaveHandler = () => {
+        try {
+          const existingTimeout = this.hoverTimeouts.get(element);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            this.hoverTimeouts.delete(element);
+          }
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+        
+        try {
+          if (element && element.removeEventListener) {
+            element.removeEventListener('mouseleave', mouseLeaveHandler);
+          }
+        } catch (removeError) {
+          // Ignore removeEventListener errors
+        }
+      };
+
+      try {
+        if (element && element.addEventListener) {
+          element.addEventListener('mouseleave', mouseLeaveHandler, { once: true });
+        }
+      } catch (addError) {
+        // If we can't add the listener, clean up the timeout
+        clearTimeout(timeoutId);
         this.hoverTimeouts.delete(element);
       }
-      element.removeEventListener('mouseleave', mouseLeaveHandler);
-    };
 
-    element.addEventListener('mouseleave', mouseLeaveHandler, { once: true });
-
-    return {
-      eventCode: 'hover',
-      confidence: 0.7,
-      data: {
-        element_type: elementData.type,
-        element_text: elementData.text,
-        element_id: elementData.id,
-        element_classes: elementData.classes
-      },
-      trigger: 'dom_event',
-      timestamp: Date.now()
-    };
+      return {
+        eventCode: 'hover',
+        confidence: 0.7,
+        data: {
+          element_type: elementData.type,
+          element_text: elementData.text,
+          element_id: elementData.id,
+          element_classes: elementData.classes
+        },
+        trigger: 'dom_event',
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      // Return null on any error to prevent crashes
+      return null;
+    }
   }
 
   private detectSearch(context: DetectionContext): DetectionResult | null {
@@ -211,19 +240,30 @@ export class NavigationDetectionStrategy implements DetectionStrategy {
   }
 
   private isClickableElement(element: Element): boolean {
-    const tagName = element.tagName.toLowerCase();
-    const clickableTags = ['a', 'button', 'input', 'select', 'textarea'];
-    
-    if (clickableTags.includes(tagName)) return true;
-    
-    // Check for click handlers or cursor pointer
-    const styles = window.getComputedStyle(element);
-    if (styles.cursor === 'pointer') return true;
-    
-    // Check for role button
-    if (element.getAttribute('role') === 'button') return true;
-    
-    return false;
+    try {
+      const tagName = element.tagName.toLowerCase();
+      const clickableTags = ['a', 'button', 'input', 'select', 'textarea'];
+      
+      if (clickableTags.includes(tagName)) return true;
+      
+      // Check for click handlers or cursor pointer with safety checks
+      if (typeof window !== 'undefined' && window.getComputedStyle) {
+        try {
+          const styles = window.getComputedStyle(element);
+          if (styles && styles.cursor === 'pointer') return true;
+        } catch (styleError) {
+          // Ignore style computation errors
+        }
+      }
+      
+      // Check for role button
+      if (element.getAttribute && element.getAttribute('role') === 'button') return true;
+      
+      return false;
+    } catch (error) {
+      // Return false on any error to prevent crashes
+      return false;
+    }
   }
 
   private isInteractiveElement(element: Element): boolean {
