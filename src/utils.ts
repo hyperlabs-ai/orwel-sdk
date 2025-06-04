@@ -83,27 +83,47 @@ export const createLogger = (config: { debug?: boolean; verbose?: boolean }) => 
   const logger = {
     success: (message: string, data?: any) => {
       if (isDebug) {
-        console.log(`${prefix} ${logLevels.success.emoji} ${message}`, data);
+        if (data !== undefined) {
+          console.log(`${prefix} ${logLevels.success.emoji} ${message}`, data);
+        } else {
+          console.log(`${prefix} ${logLevels.success.emoji} ${message}`);
+        }
       }
     },
     info: (message: string, data?: any) => {
       if (isDebug) {
-        console.info(`${prefix} ${logLevels.info.emoji} ${message}`, data);
+        if (data !== undefined) {
+          console.info(`${prefix} ${logLevels.info.emoji} ${message}`, data);
+        } else {
+          console.info(`${prefix} ${logLevels.info.emoji} ${message}`);
+        }
       }
     },
     warning: (message: string, data?: any) => {
       if (isDebug) {
-        console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`, data);
+        if (data !== undefined) {
+          console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`, data);
+        } else {
+          console.warn(`${prefix} ${logLevels.warning.emoji} ${message}`);
+        }
       }
     },
     error: (message: string, data?: any) => {
       if (isDebug) {
-        console.error(`${prefix} ${logLevels.error.emoji} ${message}`, data);
+        if (data !== undefined) {
+          console.error(`${prefix} ${logLevels.error.emoji} ${message}`, data);
+        } else {
+          console.error(`${prefix} ${logLevels.error.emoji} ${message}`);
+        }
       }
     },
     debug: (message: string, data?: any) => {
       if (isDebug && isVerbose) {
-        console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`, data);
+        if (data !== undefined) {
+          console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`, data);
+        } else {
+          console.debug(`${prefix} ${logLevels.debug.emoji} ${message}`);
+        }
       }
     },
   };

@@ -74,9 +74,7 @@ export interface OrwelEvent {
 // Auto Event Detection Types
 export interface AutoEventDetectionOptions {
   enabledCategories?: EventCategory[];
-  catalogUpdateInterval?: number;
   confidenceThreshold?: number;
-  enableCatalogSync?: boolean;
 }
 
 export interface OrwelEventDefinition {

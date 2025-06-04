@@ -17,16 +17,13 @@ export function createAutoEventDetection(
       'conversion', 'communication', 'technical', 'notification', 
       'feedback', 'gamification'
     ],
-    catalogUpdateInterval: 300000, // 5 minutes
     confidenceThreshold: 0.7,
-    enableCatalogSync: true
   };
 
   const mergedOptions = { ...defaultOptions, ...options };
 
   logger.info('Initializing auto event detection', {
     enabledCategories: mergedOptions.enabledCategories,
-    catalogSync: mergedOptions.enableCatalogSync,
     threshold: mergedOptions.confidenceThreshold
   });
 
