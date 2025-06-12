@@ -347,4 +347,20 @@ export const serializePerformanceEntry = (entry: PerformanceEntry): any => {
   }
   
   return result;
+};
+
+// Create browser fingerprint for cross-domain visitor resolution
+export const createBrowserFingerprint = (): Record<string, any> => {
+  if (!isBrowser) return {};
+  
+  return {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    platform: navigator.platform,
+    screenWidth: screen.width,
+    screenHeight: screen.height,
+    screenColorDepth: screen.colorDepth,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    devicePixelRatio: window.devicePixelRatio
+  };
 }; 

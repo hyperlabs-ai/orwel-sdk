@@ -68,6 +68,7 @@ export function createBrowserImplementation(): Orwel {
       push: (event: OrwelEvent) => queueManager.addEvent(event),
       save: () => {}  // No es necesario guardar aquí, addEvent ya lo hace
     },
+    apiClient,
     logger
   );
 
@@ -101,7 +102,11 @@ export function createBrowserImplementation(): Orwel {
       
       // Inicializar en el orden correcto
       queueManager.loadQueue();
-      visitorManager.loadVisitor();
+      
+      // Start visitor resolution in background (non-blocking)
+      visitorManager.resolveVisitor().catch(error => {
+        logger.error('Background visitor resolution failed', error);
+      });
       
       // Cargamos y creamos la sesión
       const { session: sessionData, isNewSession } = sessionManager.loadSession();

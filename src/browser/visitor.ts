@@ -1,11 +1,10 @@
 import { Visitor } from '../types';
-import { generateUUID, collectBrowserInfo, createLogger } from '../utils';
+import { generateUUID, collectBrowserInfo, createLogger, createBrowserFingerprint } from '../utils';
 
 /**
  * Creates a visitor manager that handles visitor identification and persistence
  */
 export function createVisitorManager(
-  // Dependencias externas requeridas
   storage: {
     saveVisitor: (visitor: Visitor) => void;
     loadVisitor: () => Visitor;
@@ -14,12 +13,62 @@ export function createVisitorManager(
     push: (event: any) => void;
     save: () => void;
   },
+  apiClient: {
+    send: (event: any) => Promise<boolean>;
+    resolveVisitor: (fingerprint: Record<string, any>) => Promise<string | null>;
+  },
   logger: ReturnType<typeof createLogger>
 ) {
   // Current visitor state
   let visitor: Visitor = {};
 
-  // Cargar visitor desde almacenamiento
+  // Auto-resolve visitor ID (called during init)
+  const resolveVisitor = async () => {
+    try {
+      visitor = storage.loadVisitor();
+
+      if (!visitor.id) {
+        logger.debug('No visitor ID found, resolving from server...');
+        
+        // Generate fingerprint and request from server using apiClient
+        const fingerprint = createBrowserFingerprint();
+        const serverVisitorId = await apiClient.resolveVisitor(fingerprint);
+        
+        if (serverVisitorId) {
+          visitor.id = serverVisitorId;
+          logger.success('Visitor ID resolved from server', { id: visitor.id });
+        } else {
+          // Fallback to local UUID if server fails
+          visitor.id = generateUUID();
+          logger.warning('Server resolution failed, using local UUID', { id: visitor.id });
+        }
+        
+        // Auto-identify with browser info
+        const browserInfo = collectBrowserInfo();
+        visitor = { ...visitor, ...browserInfo, id: visitor.id };
+        
+        saveVisitor();
+        
+        // Queue automatic identify event
+        queue.push({ type: 'identify', traits: visitor });
+        queue.save();
+        
+      } else {
+        logger.debug('Visitor loaded from storage', { id: visitor.id });
+      }
+    } catch (error) {
+      logger.error('Failed to resolve visitor', error);
+      if (!visitor.id) {
+        visitor.id = generateUUID();
+        const browserInfo = collectBrowserInfo();
+        visitor = { ...visitor, ...browserInfo };
+        saveVisitor();
+        logger.warning('Using fallback local visitor ID', { id: visitor.id });
+      }
+    }
+  };
+
+  // Cargar visitor desde almacenamiento (legacy method)
   const loadVisitor = () => {
     try {
       visitor = storage.loadVisitor();
@@ -53,7 +102,6 @@ export function createVisitorManager(
     try {
       // Collect browser info and merge with provided traits
       const browserInfo = collectBrowserInfo();
-      // Only include browser info that isn't explicitly provided by the user
       const mergedTraits = { ...browserInfo, ...traits };
       
       // Generate UUID if visitor doesn't have an ID
@@ -90,7 +138,6 @@ export function createVisitorManager(
     logger.info('Creating lead', { code, properties });
     
     try {
-      
       // Always queue the lead event with code
       queue.push({ 
         type: 'lead',
@@ -112,6 +159,7 @@ export function createVisitorManager(
   return {
     loadVisitor,
     saveVisitor,
+    resolveVisitor,
     identify,
     lead,
     getVisitor: () => visitor
