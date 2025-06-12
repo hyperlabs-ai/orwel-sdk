@@ -103,46 +103,55 @@ export function createBrowserImplementation(): Orwel {
       // Inicializar en el orden correcto
       queueManager.loadQueue();
       
-      // Start visitor resolution in background (non-blocking)
-      visitorManager.resolveVisitor().catch(error => {
-        logger.error('Background visitor resolution failed', error);
-      });
-      
       // Cargamos y creamos la sesión
       const { session: sessionData, isNewSession } = sessionManager.loadSession();
       
-      // Nos aseguramos de enviar primero el evento de sesión y esperar a que se complete
-      // antes de permitir otros eventos
-      if (isNewSession) {
-        logger.debug("New session detected, sending session event immediately");
-        
-        // Enviamos un evento de sesión directamente para asegurar que esté
-        // creado en el backend antes de enviar otros eventos
-        const sessionEvent = {
-          type: "session",
-          isNewSession: true,
-          sessionData: sessionManager.getSession(),
-          timestamp: new Date().toISOString()
-        };
-        
-        // Enviamos el evento directamente sin usar la cola
-        apiClient.send(sessionEvent)
-          .then(success => {
-            if (success) {
-              logger.success("Initial session event sent successfully");
-              // Ahora podemos comenzar a procesar la cola normalmente
-              // Especialmente útil si hay eventos guardados de sesiones anteriores
-              if (queueManager.getQueue().length > 0) {
-                logger.debug("Processing queued events after session creation");
-                queueManager.flush();
+      // Start visitor resolution and handle session after it completes
+      visitorManager.resolveVisitor().then(() => {
+        // Ahora que el visitor está resuelto, podemos enviar la sesión si es nueva
+        if (isNewSession) {
+          logger.debug("New session detected, sending session event with resolved visitor");
+          
+          const sessionEvent = {
+            type: "session",
+            isNewSession: true,
+            sessionData: sessionManager.getSession(),
+            timestamp: new Date().toISOString()
+          };
+          
+          // Enviamos el evento directamente sin usar la cola
+          apiClient.send(sessionEvent)
+            .then(success => {
+              if (success) {
+                logger.success("Initial session event sent successfully with visitor data");
+                // Ahora podemos comenzar a procesar la cola normalmente
+                if (queueManager.getQueue().length > 0) {
+                  logger.debug("Processing queued events after session creation");
+                  queueManager.flush();
+                }
+              } else {
+                logger.warning("Initial session event failed, will retry with queue");
+                queueManager.addEvent(sessionEvent);
               }
-            } else {
-              logger.warning("Initial session event failed, will retry with queue");
-              // Agregamos el evento a la cola para reintentar
-              queueManager.addEvent(sessionEvent);
-            }
-          });
-      }
+            });
+        }
+      }).catch(error => {
+        logger.error('Visitor resolution failed', error);
+        
+        // Si falla la resolución del visitor, enviamos la sesión de todas formas
+        if (isNewSession) {
+          logger.debug("Sending session event despite visitor resolution failure");
+          
+          const sessionEvent = {
+            type: "session",
+            isNewSession: true,
+            sessionData: sessionManager.getSession(),
+            timestamp: new Date().toISOString()
+          };
+          
+          queueManager.addEvent(sessionEvent);
+        }
+      });
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
