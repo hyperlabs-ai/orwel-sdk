@@ -295,9 +295,7 @@ orwel.monitor({
   performance: true,   // Page load and navigation timing
   errors: true,        // JavaScript errors and unhandled rejections
   console: true,       // Console errors and warnings
-  network: true,       // XHR and Fetch API calls
-  memory: true,        // Memory usage metrics
-  webVitals: true      // Core Web Vitals metrics
+  network: false       // XHR and Fetch API calls
 })
 ```
 
@@ -319,7 +317,7 @@ orwel.monitor({
 | `identify(traits)` | Attach metadata to the current visitor | Call after user authentication or when user data becomes available. Persists across sessions. |
 | `lead(code, properties)` | Capture lead information with event code | Use for newsletter signups, demo requests, contact forms. Each lead gets unique ID. |
 | `track(code, props)` | Track named events | Use consistent event names. Include relevant properties for analysis. |
-| `session(props)` | Store session data | Use for temporary state that shouldn't persist across sessions. Automatically included with events. |
+| `session(props, final?)` | Store session data | Use for temporary state that shouldn't persist across sessions. Automatically included with events. Set `final=true` for session end. |
 | `form(element, options)` | Track form interactions | Connect to important forms to capture user interaction data, submissions, and abandonment. |
 | `monitor(options)` | Enable monitoring features | Enable early to catch all relevant metrics. Consider performance impact of enabled features. |
 | `flush()` | Force-send pending events | Called automatically on page unload. Manual calls rarely needed. |
@@ -406,7 +404,9 @@ performance.mark('feature_loaded')
 ```
 
 ### Web Vitals Monitoring
-Tracks Core Web Vitals with ratings:
+**Note: Web Vitals monitoring is implemented but not automatically enabled with `monitor()`. It requires manual setup.**
+
+Core Web Vitals tracked:
 - LCP (Largest Contentful Paint)
   - Good: < 2.5s
   - Needs Improvement: 2.5s - 4s
@@ -451,13 +451,6 @@ Captures:
 - Status codes
 - Request/response sizes
 - Automatic correlation with events
-
-### Memory Monitoring
-Tracks:
-- JS heap size
-- Memory limits
-- Allocation trends
-- GC impact (where available)
 
 ## 📊 Automatic Data Collection
 
@@ -533,24 +526,15 @@ orwel.init({
 
   // Optional features
   autoMonitor: true,            // Enable all monitoring
+  autoEventDetection: true,     // Enable automatic event detection
   debug: false,                 // Enable debug logging
   verbose: false,               // Enable verbose logging
   
-  // Monitoring options
-  monitoringOptions: {
-    performance: true,          // Performance monitoring
-    errors: true,              // Error tracking
-    console: true,             // Console monitoring
-    network: false,            // Network request tracking
-    memory: false,             // Memory usage monitoring
-    webVitals: true           // Core Web Vitals
-  },
-
-  // Advanced options
-  flushInterval: 30000,        // Flush interval in ms
-  maxQueueSize: 100,           // Max events in queue
-  retryAttempts: 3,            // Failed request retries
-  sessionTimeout: 30           // Session timeout in minutes
+  // Auto event detection options
+  eventDetectionOptions: {
+    enabledCategories: ['auth', 'ecommerce', 'navigation', 'form'],
+    confidenceThreshold: 0.7
+  }
 });
 ```
 
@@ -622,6 +606,20 @@ The SDK implements several privacy and security measures:
 - CCPA-compliant
 - Cookie law compatible
 - Privacy policy friendly
+
+## ⚠️ Current Limitations
+
+While the SDK is fully functional, some features are implemented but not yet integrated:
+
+### Not Currently Available in `monitor()`:
+- **Web Vitals Monitoring**: Implementation exists but requires manual setup
+- **Memory Monitoring**: Implementation exists but not integrated in monitoring system
+
+### Available Monitoring Features:
+- ✅ Performance monitoring (Navigation, Resource timing)
+- ✅ Error monitoring (JS errors, Promise rejections)
+- ✅ Console monitoring (errors, warnings)
+- ✅ Network monitoring (XHR, Fetch requests)
 
 ## 📄 License
 

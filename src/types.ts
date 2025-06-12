@@ -2,7 +2,7 @@
 export interface Orwel {
   init: (opts: Config) => void;
   identify: (traits?: Record<string, any>) => { success: boolean; visitorId: string };
-  lead: (code: string, properties?: Record<string, any>) => { success: boolean; leadId: string };
+  lead: (code: string, properties?: Record<string, any>) => { success: boolean };
   track: (code: string, properties?: Record<string, any>) => { success: boolean; eventId: string };
   session: (properties?: Record<string, any>, isFinalUpdate?: boolean) => { success: boolean; sessionId: string };
   monitor: (options?: MonitorOptions) => { success: boolean };

@@ -90,9 +90,6 @@ export function createVisitorManager(
     logger.info('Creating lead', { code, properties });
     
     try {
-      // Generate UUID for lead if not provided
-      const leadId = properties.id || generateUUID();
-      properties.id = leadId;
       
       // Always queue the lead event with code
       queue.push({ 
@@ -104,11 +101,11 @@ export function createVisitorManager(
       });
       queue.save();
       
-      logger.success('Lead created', { code, id: leadId });
-      return { success: true, leadId };
+      logger.success('Lead created', { code });
+      return { success: true };
     } catch (error) {
       logger.error('Failed to create lead', error);
-      return { success: false, leadId: '' };
+      return { success: false };
     }
   };
 
