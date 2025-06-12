@@ -26,8 +26,7 @@ import { orwel } from 'orwel'
 
 // Inicializa lo más temprano posible en tu aplicación
 orwel.init({
-  apiKey: 'orwel_xxxxxxxxxxxxx',
-  autoMonitor: true, // opcional: habilita automáticamente todas las funciones de monitoreo
+  apiKey: 'orwel_xxxxxxxxxxxxx'
 })
 ```
 
