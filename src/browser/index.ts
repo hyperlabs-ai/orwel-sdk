@@ -228,6 +228,10 @@ export function createBrowserImplementation(): Orwel {
       return visitorManager.identify(traits);
     },
     
+    lead: (code: string, properties: Record<string, any> = {}) => {
+      return visitorManager.lead(code, properties);
+    },
+    
     track: (code: string, properties = {}) => {
       const eventId = generateUUID();
       logger.info("Tracking event", { code, eventId });

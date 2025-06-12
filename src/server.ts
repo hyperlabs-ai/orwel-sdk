@@ -20,6 +20,11 @@ export function createServerImplementation(): Orwel {
     return { success: true, sessionId: '' };
   };
   
+  const noopLead = () => {
+    logger.debug('Lead called (no-op in server environment)');
+    return { success: true, leadId: '' };
+  };
+  
   const noopAsync = () => {
     logger.debug('Flush called (no-op in server environment)');
     return Promise.resolve({ success: true, count: 0 });
@@ -47,6 +52,7 @@ export function createServerImplementation(): Orwel {
       logger.success('Orwel SDK initialized in server environment');
     },
     identify: noopId,
+    lead: noopLead,
     track: noopTrack,
     session: noopSession,
     monitor: () => {

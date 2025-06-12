@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.20] - 2025-01-08
+## [1.2.0] - 2025-06-11
+
+### Added
+- **Lead Tracking**: New `orwel.lead(code, properties)` method for capturing potential customers and prospects
+  - Independent lead records with unique identifiers
+  - Event-based lead categorization (e.g., 'newsletter_signup', 'demo_request', 'contact_form')
+  - Automatic browser information collection merged with provided properties
+  - Separate from visitor identification for better lead management
+- Enhanced TypeScript definitions for the new lead tracking functionality
+- Comprehensive documentation and examples for lead tracking use cases
+
+### Improved
+- Updated visitor manager to support both visitor identification and lead capture
+- Enhanced event queue system to handle lead events alongside existing event types
+- Better separation of concerns between visitor tracking and lead generation
+
+## [1.0.20] - 2025-05-24
 
 ### Fixed
 - Fixed form tracking event listeners not being properly cleaned up when navigating between pages

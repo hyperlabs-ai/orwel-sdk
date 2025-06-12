@@ -85,10 +85,38 @@ export function createVisitorManager(
     }
   };
 
+  // Crear lead con código y properties
+  const lead = (code: string, properties: Record<string, any> = {}) => {
+    logger.info('Creating lead', { code, properties });
+    
+    try {
+      // Generate UUID for lead if not provided
+      const leadId = properties.id || generateUUID();
+      properties.id = leadId;
+      
+      // Always queue the lead event with code
+      queue.push({ 
+        type: 'lead',
+        code,
+        properties,
+        source: 'orwel-sdk',
+        timestamp: new Date().toISOString()
+      });
+      queue.save();
+      
+      logger.success('Lead created', { code, id: leadId });
+      return { success: true, leadId };
+    } catch (error) {
+      logger.error('Failed to create lead', error);
+      return { success: false, leadId: '' };
+    }
+  };
+
   return {
     loadVisitor,
     saveVisitor,
     identify,
+    lead,
     getVisitor: () => visitor
   };
 } 
