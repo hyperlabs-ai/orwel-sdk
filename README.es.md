@@ -1,5 +1,9 @@
 # 🛰️ Orwel SDK
 
+[![npm version](https://badge.fury.io/js/orwel.svg)](https://www.npmjs.com/package/orwel)
+[![GitHub](https://img.shields.io/github/license/hyperlabs-ai/orwel-sdk)](https://github.com/hyperlabs-ai/orwel-sdk)
+[![npm downloads](https://img.shields.io/npm/dm/orwel)](https://www.npmjs.com/package/orwel)
+
 **Orwel** es un SDK liviano de JavaScript para rastrear eventos frontend, características de visitantes y señales de UX — todo desde un script simple o instalación npm. Diseñado para equipos de marketing y analistas de producto que desean visibilidad en tiempo real de sus visitantes analizando comportamientos a profundidad, sentimientos, intenciones y métricas de conversión.
 
 ---
