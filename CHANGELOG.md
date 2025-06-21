@@ -5,7 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2025-06-21
+## [1.3.1] - 2024-06-21
+
+### Fixed
+- **IntelliSense Support**: Fixed TypeScript IntelliSense not showing proper types in client projects
+- **Package Exports**: Added "types" field to package.json exports for better module resolution
+- **Default Export**: Added default export for improved import experience
+- **TypeScript Config**: Improved TypeScript configuration for better type generation and resolution
+
+### Changed
+- Enhanced package.json with proper exports configuration
+- Updated tsconfig.json with optimized settings for type generation
+- Added declaration maps for better debugging experience
+
+### Added
+- Multiple import styles support: named import, default import, and type imports
+- Enhanced developer experience with better IntelliSense support
+- Debug guide for troubleshooting IntelliSense issues
+
+## [1.3.0] - 2024-06-20
 
 ### Added
 - **Parameter Validation**: Comprehensive runtime validation for all SDK methods

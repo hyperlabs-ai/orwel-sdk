@@ -16,3 +16,6 @@ export type { Orwel, Config, MonitorOptions };
 
 // Export the orwel singleton
 export { orwel };
+
+// Export as default
+export default orwel;
