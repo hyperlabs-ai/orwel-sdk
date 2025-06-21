@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2025-06-11
 
 ### Added
-- **Lead Tracking**: New `orwel.lead(code, properties)` method for capturing potential customers and prospects
+- **Conversion Tracking**: New `orwel.conversion(code, properties)` method for capturing potential customers and prospects
   - Independent lead records with unique identifiers
   - Event-based lead categorization (e.g., 'newsletter_signup', 'demo_request', 'contact_form')
   - Automatic browser information collection merged with provided properties

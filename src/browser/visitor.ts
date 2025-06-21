@@ -133,14 +133,14 @@ export function createVisitorManager(
     }
   };
 
-  // Crear lead con código y properties
-  const lead = (code: string, properties: Record<string, any> = {}) => {
-    logger.info('Creating lead', { code, properties });
+  // Crear conversion con código y properties
+  const conversion = (code: string, properties: Record<string, any> = {}) => {
+    logger.info('Creating conversion', { code, properties });
     
     try {
-      // Always queue the lead event with code
+      // Always queue the conversion event with code
       queue.push({ 
-        type: 'lead',
+        type: 'conversion',
         code,
         properties,
         source: 'orwel-sdk',
@@ -148,10 +148,10 @@ export function createVisitorManager(
       });
       queue.save();
       
-      logger.success('Lead created', { code });
+      logger.success('Conversion created', { code });
       return { success: true };
     } catch (error) {
-      logger.error('Failed to create lead', error);
+      logger.error('Failed to create conversion', error);
       return { success: false };
     }
   };
@@ -161,7 +161,7 @@ export function createVisitorManager(
     saveVisitor,
     resolveVisitor,
     identify,
-    lead,
+    conversion,
     getVisitor: () => visitor
   };
 } 

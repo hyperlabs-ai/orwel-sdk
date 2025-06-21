@@ -121,24 +121,24 @@ orwel.identify({
 })
 ```
 
-### Generación de Leads
+### Generación de Conversiones
 ```ts
-// Captura leads con códigos de evento específicos
-orwel.lead('newsletter_signup', {
+// Captura conversiones con códigos de evento específicos
+orwel.conversion('newsletter_signup', {
   email: 'user@example.com',
   source: 'landing_page',
   campaign: 'winter_sale'
 })
 
-// Lead de solicitud de demo
-orwel.lead('demo_request', {
+// Conversión de solicitud de demo
+orwel.conversion('demo_request', {
   company: 'Acme Corp',
   phone: '+1234567890',
   interest: 'enterprise'
 })
 
-// Lead de formulario de contacto
-orwel.lead('contact_form', {
+// Conversión de formulario de contacto
+orwel.conversion('contact_form', {
   name: 'John Doe',
   email: 'john@company.com',
   message: 'Interesado en sus servicios'
@@ -191,30 +191,30 @@ El administrador de visitantes:
 4. Persiste datos en localStorage
 5. Pone en cola evento identify para sincronización con servidor
 
-## 🎯 Rastreo de Leads
+## 🎯 Rastreo de Conversiones
 
-El rastreo de leads te permite capturar clientes potenciales y prospectos con recopilación de datos estructurada. A diferencia de la identificación de visitantes, los leads son entidades independientes con sus propios identificadores únicos.
+El rastreo de conversiones te permite capturar clientes potenciales y prospectos con recopilación de datos estructurada. A diferencia de la identificación de visitantes, las conversiones son entidades independientes con sus propios identificadores únicos.
 
-### Lead vs Identify
+### Conversión vs Identify
 
-| Característica | `identify()` | `lead()` |
+| Característica | `identify()` | `conversion()` |
 |----------------|-------------|----------|
-| **Propósito** | Actualiza características del visitante actual | Captura nueva información de lead |
-| **Persistencia** | Guarda en perfil de visitante | Registro de lead independiente |
-| **Generación de ID** | Usa ID del visitante | Genera ID único de lead |
-| **Tipo de Evento** | `identify` | `lead` |
+| **Propósito** | Actualiza características del visitante actual | Captura información de conversión |
+| **Persistencia** | Guarda en perfil de visitante | Registro de conversión independiente |
+| **Generación de ID** | Usa ID del visitante | Genera ID único de conversión |
+| **Tipo de Evento** | `identify` | `conversion` |
 | **Casos de Uso** | Login de usuario, actualizaciones de perfil | Formularios, newsletters, demos |
 
-### Estructura de Evento de Lead
+### Estructura de Evento de Conversión
 
-Cuando llamas `orwel.lead()`, genera un evento con esta estructura:
+Cuando llamas `orwel.conversion()`, genera un evento con esta estructura:
 
 ```typescript
 {
-  type: 'lead',
+  type: 'conversion',
   code: 'newsletter_signup',  // El código de evento que proporcionaste
   properties: {
-    id: 'lead-uuid-generated',  // Identificador único de lead
+    id: 'conversion-uuid-generated',  // Identificador único de conversión
     email: 'user@example.com',
     source: 'landing_page',
     // ... otras propiedades + info del navegador
@@ -223,18 +223,18 @@ Cuando llamas `orwel.lead()`, genera un evento con esta estructura:
 }
 ```
 
-### Tipos Comunes de Leads
+### Tipos Comunes de Conversiones
 
 ```typescript
 // Suscripción a newsletter
-orwel.lead('newsletter_signup', {
+orwel.conversion('newsletter_signup', {
   email: 'user@example.com',
   source: 'footer_form',
   interests: ['product_updates', 'marketing']
 })
 
 // Solicitud de demo
-orwel.lead('demo_request', {
+orwel.conversion('demo_request', {
   company: 'Tech Corp',
   email: 'contact@techcorp.com',
   phone: '+1-555-0123',
@@ -243,7 +243,7 @@ orwel.lead('demo_request', {
 })
 
 // Formulario de contacto
-orwel.lead('contact_form', {
+orwel.conversion('contact_form', {
   name: 'Sarah Johnson',
   email: 'sarah@company.com',
   subject: 'Consulta de Asociación',
@@ -251,7 +251,7 @@ orwel.lead('contact_form', {
 })
 
 // Descarga de whitepaper
-orwel.lead('whitepaper_download', {
+orwel.conversion('whitepaper_download', {
   email: 'reader@example.com',
   title: 'Estado de Analytics 2024',
   job_title: 'Analista de Datos',
@@ -261,7 +261,7 @@ orwel.lead('whitepaper_download', {
 
 ### Recopilación Automática de Datos
 
-El método `lead()` automáticamente recopila y fusiona:
+El método `conversion()` automáticamente recopila y fusiona:
 - Información del navegador (user agent, idioma, plataforma)
 - Contexto de página (URL, referrer, timestamp)
 - Datos de sesión cuando estén disponibles

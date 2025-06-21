@@ -124,22 +124,22 @@ orwel.identify({
 
 ### Lead Generation
 ```ts
-// Capture leads with specific event codes
-orwel.lead('newsletter_signup', {
+// Capture conversions with specific event codes
+orwel.conversion('newsletter_signup', {
   email: 'user@example.com',
   source: 'landing_page',
   campaign: 'winter_sale'
 })
 
-// Demo request lead
-orwel.lead('demo_request', {
+// Demo request conversion
+orwel.conversion('demo_request', {
   company: 'Acme Corp',
   phone: '+1234567890',
   interest: 'enterprise'
 })
 
-// Contact form lead
-orwel.lead('contact_form', {
+// Contact form conversion
+orwel.conversion('contact_form', {
   name: 'John Doe',
   email: 'john@company.com',
   message: 'Interested in your services'
@@ -192,30 +192,30 @@ The visitor manager:
 4. Persists data to localStorage
 5. Queues identify event for server sync
 
-## 🎯 Lead Tracking
+## 🎯 Conversion Tracking
 
-Lead tracking allows you to capture potential customers and prospects with structured data collection. Unlike visitor identification, leads are independent entities with their own unique identifiers.
+Conversion tracking allows you to capture potential customers and prospects with structured data collection. Unlike visitor identification, conversions are independent entities with their own unique identifiers.
 
-### Lead vs Identify
+### Conversion vs Identify
 
-| Feature | `identify()` | `lead()` |
+| Feature | `identify()` | `conversion()` |
 |---------|-------------|----------|
-| **Purpose** | Update current visitor traits | Capture new lead information |
-| **Persistence** | Saves to visitor profile | Independent lead record |
-| **ID Generation** | Uses visitor ID | Generates unique lead ID |
-| **Event Type** | `identify` | `lead` |
+| **Purpose** | Update current visitor traits | Capture conversion information |
+| **Persistence** | Saves to visitor profile | Independent conversion record |  
+| **ID Generation** | Uses visitor ID | Generates unique conversion ID |
+| **Event Type** | `identify` | `conversion` |
 | **Use Cases** | User login, profile updates | Forms, newsletters, demos |
 
-### Lead Event Structure
+### Conversion Event Structure
 
-When you call `orwel.lead()`, it generates an event with this structure:
+When you call `orwel.conversion()`, it generates an event with this structure:
 
 ```typescript
 {
-  type: 'lead',
+  type: 'conversion',
   code: 'newsletter_signup',  // The event code you provided
   properties: {
-    id: 'lead-uuid-generated',  // Unique lead identifier
+    id: 'conversion-uuid-generated',  // Unique conversion identifier
     email: 'user@example.com',
     source: 'landing_page',
     // ... other properties + browser info
@@ -224,18 +224,18 @@ When you call `orwel.lead()`, it generates an event with this structure:
 }
 ```
 
-### Common Lead Types
+### Common Conversion Types
 
 ```typescript
 // Newsletter subscription
-orwel.lead('newsletter_signup', {
+orwel.conversion('newsletter_signup', {
   email: 'user@example.com',
   source: 'footer_form',
   interests: ['product_updates', 'marketing']
 })
 
 // Demo request
-orwel.lead('demo_request', {
+orwel.conversion('demo_request', {
   company: 'Tech Corp',
   email: 'contact@techcorp.com',
   phone: '+1-555-0123',
@@ -244,7 +244,7 @@ orwel.lead('demo_request', {
 })
 
 // Contact form
-orwel.lead('contact_form', {
+orwel.conversion('contact_form', {
   name: 'Sarah Johnson',
   email: 'sarah@company.com',
   subject: 'Partnership Inquiry',
@@ -252,7 +252,7 @@ orwel.lead('contact_form', {
 })
 
 // Whitepaper download
-orwel.lead('whitepaper_download', {
+orwel.conversion('whitepaper_download', {
   email: 'reader@example.com',
   title: 'State of Analytics 2024',
   job_title: 'Data Analyst',
@@ -262,7 +262,7 @@ orwel.lead('whitepaper_download', {
 
 ### Automatic Data Collection
 
-The `lead()` method automatically collects and merges:
+The `conversion()` method automatically collects and merges:
 - Browser information (user agent, language, platform)
 - Page context (URL, referrer, timestamp)
 - Session data when available

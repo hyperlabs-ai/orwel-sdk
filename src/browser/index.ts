@@ -242,8 +242,8 @@ export function createBrowserImplementation(): Orwel {
       return visitorManager.identify(traits);
     },
     
-    lead: (code: string, properties: Record<string, any> = {}) => {
-      return visitorManager.lead(code, properties);
+    conversion: (code: string, properties: Record<string, any> = {}) => {
+      return visitorManager.conversion(code, properties);
     },
     
     track: (code: string, properties = {}) => {
