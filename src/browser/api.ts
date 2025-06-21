@@ -123,8 +123,113 @@ export function createApiClient(
     }
   };
 
+  // Enviar múltiples eventos en lotes al servidor
+  const sendBatch = async (events: OrwelEvent[]): Promise<{ success: boolean; failedEvents: OrwelEvent[] }> => {
+    if (events.length === 0) {
+      return { success: true, failedEvents: [] };
+    }
+
+    try {
+      // Prepare batch payload with common data
+      const visitor = getVisitor();
+      const session = getSession();
+      const timestamp = new Date().toISOString();
+      
+      const batchPayload = {
+        events: events.map(event => ({
+          ...event,
+          visitor,
+          session,
+          timestamp
+        })),
+        batchId: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        count: events.length
+      };
+
+      logger.debug("Sending batch of events to server", { 
+        count: events.length,
+        batchId: batchPayload.batchId,
+        types: events.map(e => e.type)
+      });
+      
+      const config = getConfig();
+
+      // Create fetch promise
+      const fetchPromise = fetch("https://api.orwel.io/ingest/batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Orwel-Key": config.apiKey,
+        },
+        body: JSON.stringify(batchPayload),
+        keepalive: true,
+      });
+
+      // Create timeout promise with longer timeout for batches
+      const batchTimeout = Math.min(DEFAULT_TIMEOUT * 2, 10000); // Max 10 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Batch request timeout'));
+        }, batchTimeout);
+      });
+
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      
+      if (!response.ok) {
+        // Check if it's a partial failure (some events processed, some failed)
+        if (response.status === 207) { // Multi-status response
+          try {
+            const result = await response.json();
+            const failedEvents = result.failedEvents || [];
+            
+            logger.warning("Batch partially processed", {
+              total: events.length,
+              failed: failedEvents.length,
+              success: events.length - failedEvents.length
+            });
+            
+            return { success: false, failedEvents };
+          } catch (parseError) {
+            logger.error("Failed to parse partial batch response", { parseError });
+            return { success: false, failedEvents: events };
+          }
+        }
+        
+        // For 400 errors, don't retry any events
+        if (response.status === 400) {
+          logger.error("Batch bad request error (format issue) - not retrying", { 
+            count: events.length,
+            status: response.status,
+            statusText: response.statusText
+          });
+          return { success: true, failedEvents: [] }; // Treat as success to avoid retry
+        }
+        
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      logger.success("Batch sent successfully", { 
+        count: events.length,
+        batchId: batchPayload.batchId
+      });
+      
+      return { success: true, failedEvents: [] };
+      
+    } catch (err) {
+      const isTimeout = err instanceof Error && err.message === 'Batch request timeout';
+      logger.error(`Failed to send batch: ${isTimeout ? 'timeout' : 'network error'}`, { 
+        count: events.length,
+        error: err 
+      });
+      
+      return { success: false, failedEvents: events };
+    }
+  };
+
   return {
     send,
+    sendBatch,
     resolveVisitor
   };
 } 

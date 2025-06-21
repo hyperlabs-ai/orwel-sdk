@@ -16,6 +16,7 @@ export function createQueueManager(
   },
   api: {
     send: (event: OrwelEvent) => Promise<boolean>;
+    sendBatch: (events: OrwelEvent[]) => Promise<{ success: boolean; failedEvents: OrwelEvent[] }>;
   },
   sessionManager: {
     setPendingUpdate: (isPending: boolean) => void;
@@ -107,56 +108,139 @@ export function createQueueManager(
     }
   };
 
-  // Vaciar (flush) y enviar todos los eventos en la cola
+  // Vaciar (flush) y enviar todos los eventos en la cola usando batch
   const flush = async () => {
     sessionManager.flushSessionBuffer();
     
-    logger.debug("Flushing event queue", { count: queue.length });
-    let sentCount = 0;
+    if (queue.length === 0) {
+      logger.debug("Queue is empty, nothing to flush");
+      return { success: true, count: 0 };
+    }
+    
+    logger.debug("Flushing event queue with batch processing", { count: queue.length });
+    
+    // Check circuit breaker before processing
+    if (!checkCircuitBreaker()) {
+      logger.warning("Circuit breaker is open - skipping flush", {
+        failureCount,
+        queueSize: queue.length
+      });
+      return { success: false, count: 0 };
+    }
     
     // Create a copy of the current queue and clear the original
     const eventsToProcess = [...queue];
     queue.length = 0;
 
-    // Process each event only once without retries
-    for (const evt of eventsToProcess) {
-      if (!checkCircuitBreaker()) {
-        // If circuit breaker trips, add remaining events back to queue
-        queue.push(...eventsToProcess.slice(eventsToProcess.indexOf(evt)));
-        logger.warning("Circuit breaker tripped - pausing event processing", {
-          failureCount,
-          remainingEvents: queue.length
-        });
-        break;
-      }
-
-      const result = await api.send(evt);
-      if (result) {
-        sentCount++;
-        if (evt.type === "session") {
+    try {
+      // Try to send all events in a single batch first
+      const batchResult = await api.sendBatch(eventsToProcess);
+      
+      if (batchResult.success) {
+        // All events sent successfully
+        const sentCount = eventsToProcess.length;
+        failureCount = 0; // Reset failure count on success
+        
+        // Handle session events
+        const sessionEvents = eventsToProcess.filter(evt => evt.type === "session");
+        if (sessionEvents.length > 0) {
           sessionManager.setPendingUpdate(false);
         }
-        failureCount = 0; // Reset failure count on success
-      } else { // Event send failed
+        
+        saveQueue(); // Save empty queue
+        logger.success("Batch flush completed successfully", { 
+          sent: sentCount,
+          remaining: queue.length,
+          circuitBreakerStatus: 'closed'
+        });
+        
+        return { success: true, count: sentCount };
+      } else {
+        // Some or all events failed
         failureCount++;
         lastFailureTime = Date.now();
         
-        // Failed events are put back in the queue for next flush
-        queue.push(evt);
-        logger.debug("Event sending failed, will retry in next flush", { 
-          type: evt.type, 
-          eventId: (evt as any).event?.id 
+        // Put failed events back in queue
+        const failedEvents = batchResult.failedEvents;
+        const successfulCount = eventsToProcess.length - failedEvents.length;
+        
+        // Add failed events back to the beginning of the queue
+        queue.unshift(...failedEvents);
+        
+        // Handle successful session events
+        if (successfulCount > 0) {
+          const processedEvents = eventsToProcess.filter(evt => 
+            !failedEvents.some(failed => failed === evt)
+          );
+          const sessionEvents = processedEvents.filter(evt => evt.type === "session");
+          if (sessionEvents.length > 0) {
+            sessionManager.setPendingUpdate(false);
+          }
+        }
+        
+        saveQueue();
+        logger.warning("Batch flush partially failed", { 
+          sent: successfulCount,
+          failed: failedEvents.length,
+          remaining: queue.length,
+          circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
         });
+        
+        return { success: successfulCount > 0, count: successfulCount };
+      }
+    } catch (error) {
+      // Batch endpoint might not be available - try fallback to individual sends
+      logger.warning("Batch processing failed, falling back to individual sends", { error });
+      
+      let sentCount = 0;
+      const failedEvents: OrwelEvent[] = [];
+      
+      // Process events individually as fallback
+      for (const evt of eventsToProcess) {
+        try {
+          const result = await api.send(evt);
+          if (result) {
+            sentCount++;
+            if (evt.type === "session") {
+              sessionManager.setPendingUpdate(false);
+            }
+          } else {
+            failedEvents.push(evt);
+          }
+        } catch (individualError) {
+          logger.debug("Individual event send failed", { type: evt.type, error: individualError });
+          failedEvents.push(evt);
+        }
+      }
+      
+      // Handle results from fallback processing
+      if (failedEvents.length > 0) {
+        failureCount++;
+        lastFailureTime = Date.now();
+        queue.unshift(...failedEvents);
+      } else {
+        failureCount = 0; // Reset on complete success
+      }
+      
+      saveQueue();
+      
+      if (sentCount > 0) {
+        logger.success("Fallback flush completed", { 
+          sent: sentCount,
+          failed: failedEvents.length,
+          remaining: queue.length,
+          circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+        });
+        return { success: true, count: sentCount };
+      } else {
+        logger.error("Fallback flush failed completely", { 
+          eventsRestored: failedEvents.length,
+          remaining: queue.length,
+          circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+        });
+        return { success: false, count: 0 };
       }
     }
-    
-    saveQueue();
-    logger.success("Queue flushed", { 
-      sent: sentCount,
-      remaining: queue.length,
-      circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
-    });
-    return { success: true, count: sentCount };
   };
 
   // Start circuit breaker reset interval

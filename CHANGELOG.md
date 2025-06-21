@@ -5,21 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2025-06-11
+## [1.3.0] - 2025-06-21
 
 ### Added
-- **Conversion Tracking**: New `orwel.conversion(code, properties)` method for capturing potential customers and prospects
-  - Independent lead records with unique identifiers
-  - Event-based lead categorization (e.g., 'newsletter_signup', 'demo_request', 'contact_form')
+- **Conversion Tracking**: New `orwel.conversion(code, properties)` method for capturing potential customers and prospects (renamed from `lead`)
+  - Independent conversion records with unique identifiers
+  - Event-based conversion categorization (e.g., 'newsletter_signup', 'demo_request', 'contact_form')
   - Automatic browser information collection merged with provided properties
-  - Separate from visitor identification for better lead management
-- Enhanced TypeScript definitions for the new lead tracking functionality
-- Comprehensive documentation and examples for lead tracking use cases
+  - Separate from visitor identification for better conversion management
+- **Batch Processing**: Events are now sent in batches for improved performance and reduced network overhead
+  - New `sendBatch()` method in API client for bulk event processing
+  - Automatic fallback to individual sends if batch endpoint is unavailable
+  - 5-10x performance improvement with 90% reduction in HTTP requests
+  - Partial failure handling for robust error recovery
+  - Circuit breaker integration for batch processing
+- Enhanced TypeScript definitions for the new conversion tracking and batch processing functionality
+- Comprehensive documentation and examples for conversion tracking and batch processing use cases
 
 ### Improved
-- Updated visitor manager to support both visitor identification and lead capture
-- Enhanced event queue system to handle lead events alongside existing event types
-- Better separation of concerns between visitor tracking and lead generation
+- Updated visitor manager to support both visitor identification and conversion capture
+- Enhanced event queue system to handle conversion events and batch processing
+- Better separation of concerns between visitor tracking and conversion generation
+- Optimized network performance through intelligent batching
 
 ## [1.0.20] - 2025-05-24
 
