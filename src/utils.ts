@@ -350,6 +350,58 @@ export const serializePerformanceEntry = (entry: PerformanceEntry): any => {
 };
 
 // Create browser fingerprint for cross-domain visitor resolution
+// Validation utilities
+export const validateRequired = (value: any, name: string): void => {
+  if (value === undefined || value === null) {
+    throw new Error(`${name} is required`);
+  }
+};
+
+export const validateString = (value: any, name: string): void => {
+  validateRequired(value, name);
+  if (typeof value !== 'string') {
+    throw new Error(`${name} must be a string`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`${name} cannot be empty`);
+  }
+};
+
+export const validateObject = (value: any, name: string): void => {
+  if (value !== undefined && value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+    throw new Error(`${name} must be an object`);
+  }
+};
+
+export const validateApiKey = (apiKey: any): void => {
+  validateString(apiKey, 'apiKey');
+  if (!apiKey.startsWith('orwel_')) {
+    throw new Error('apiKey must start with "orwel_"');
+  }
+  if (apiKey.length < 20) {
+    throw new Error('apiKey appears to be invalid (too short)');
+  }
+};
+
+export const validateEventCode = (code: any): void => {
+  validateString(code, 'code');
+  if (!/^[a-z0-9_]+$/.test(code)) {
+    throw new Error('Event code must contain only lowercase letters, numbers, and underscores');
+  }
+  if (code.length > 50) {
+    throw new Error('Event code must be 50 characters or less');
+  }
+};
+
+export const validateEmailIfPresent = (properties: Record<string, any>): void => {
+  if (properties.email && typeof properties.email === 'string') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(properties.email)) {
+      throw new Error('Invalid email format in properties');
+    }
+  }
+};
+
 export const createBrowserFingerprint = (): Record<string, any> => {
   if (!isBrowser) return {};
   

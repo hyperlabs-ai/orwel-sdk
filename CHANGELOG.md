@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2025-06-21
 
 ### Added
+- **Parameter Validation**: Comprehensive runtime validation for all SDK methods
+  - API key format validation (must start with 'orwel_' and be at least 20 characters)
+  - Event code validation (lowercase letters, numbers, and underscores only, max 50 chars)
+  - Email format validation when present in properties
+  - Required parameter validation with clear error messages
+  - Type safety validation for objects and form elements
+- **Enhanced IntelliSense**: Detailed JSDoc documentation for all methods and interfaces
+  - Method descriptions with usage examples
+  - Parameter documentation with type hints
+  - Return type information
+  - Best practices and validation rules displayed in IDE
 - **Conversion Tracking**: New `orwel.conversion(code, properties)` method for capturing potential customers and prospects (renamed from `lead`)
   - Independent conversion records with unique identifiers
   - Event-based conversion categorization (e.g., 'newsletter_signup', 'demo_request', 'contact_form')

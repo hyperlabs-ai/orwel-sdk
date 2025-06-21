@@ -6,6 +6,13 @@
 
 **Orwel** is a lightweight, JavaScript SDK for tracking frontend events, visitor traits, and UX signals — all from a simple script or npm install. Designed for marketing teams and product analysts who want real-time visibility into their funnel.
 
+### ✨ Key Features
+- **🛡️ Parameter Validation**: Runtime validation with clear error messages
+- **🔧 TypeScript**: Full IntelliSense support with detailed method documentation
+- **📊 Batch Processing**: High-performance event batching for reduced server load  
+- **🔄 Auto-retry**: Circuit breaker pattern with automatic failure recovery
+- **📱 Cross-platform**: Works in all modern browsers and frameworks
+
 ---
 
 ## 🚀 Quickstart (via npm)
@@ -324,6 +331,41 @@ console.log(`Sent ${result.count} events in batch`);
 - **Network**: 90% reduction in HTTP requests
 - **Server Load**: Reduced connection overhead
 - **Reliability**: Automatic fallback to individual sends if batch fails
+
+## 🛡️ Parameter Validation & Type Safety
+
+The SDK includes comprehensive parameter validation with clear error messages:
+
+```typescript
+// ❌ Invalid API key format
+orwel.init({ apiKey: 'invalid_key' });
+// Error: apiKey must start with "orwel_"
+
+// ❌ Invalid event code format  
+orwel.track('Invalid-Event!', {});
+// Error: Event code must contain only lowercase letters, numbers, and underscores
+
+// ❌ Invalid email format
+orwel.conversion('signup', { email: 'invalid-email' });
+// Error: Invalid email format in properties
+
+// ✅ Correct usage
+orwel.init({ apiKey: 'orwel_your_key_here_12345' });
+orwel.track('button_click', { buttonId: 'cta-header' });
+```
+
+### Validation Rules
+- **API Keys**: Must start with `orwel_` and be at least 20 characters
+- **Event Codes**: Lowercase letters, numbers, and underscores only (max 50 chars)
+- **Email Addresses**: Validated automatically when present in properties
+- **Required Parameters**: Clear error messages for missing required fields
+- **Type Safety**: Runtime validation ensures correct data types
+
+### IntelliSense Features
+- **Method Documentation**: Hover over any method to see detailed descriptions
+- **Parameter Hints**: Complete parameter documentation with examples
+- **Return Type Info**: Full TypeScript definitions for all return values
+- **Usage Examples**: Code examples shown directly in your IDE
 
 ## 🔗 Quickstart (via CDN)
 

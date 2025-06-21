@@ -1,13 +1,125 @@
-// Main SDK interfaces
+/**
+ * Main Orwel SDK interface providing event tracking, visitor identification, and analytics capabilities
+ */
 export interface Orwel {
+  /**
+   * Initialize the Orwel SDK with your API key and configuration
+   * @param opts - Configuration options including API key and monitoring settings
+   * @example
+   * ```typescript
+   * orwel.init({
+   *   apiKey: 'orwel_your_api_key_here',
+   *   autoMonitor: true,
+   *   debug: true
+   * });
+   * ```
+   */
   init: (opts: Config) => void;
+
+  /**
+   * Identify a visitor by associating traits with their unique visitor ID
+   * @param traits - Optional object containing visitor attributes like email, name, plan, etc.
+   * @returns Object with success status and visitor ID
+   * @example
+   * ```typescript
+   * orwel.identify({
+   *   email: 'user@example.com',
+   *   name: 'John Doe',
+   *   plan: 'premium'
+   * });
+   * ```
+   */
   identify: (traits?: Record<string, any>) => { success: boolean; visitorId: string };
+
+  /**
+   * Track a conversion event such as signups, purchases, or form submissions
+   * @param code - Event code identifying the type of conversion (e.g., 'newsletter_signup', 'purchase')
+   * @param properties - Optional object containing conversion-specific data
+   * @returns Object with success status
+   * @example
+   * ```typescript
+   * orwel.conversion('newsletter_signup', {
+   *   email: 'user@example.com',
+   *   source: 'homepage_banner',
+   *   campaign: 'summer_sale'
+   * });
+   * ```
+   */
   conversion: (code: string, properties?: Record<string, any>) => { success: boolean };
+
+  /**
+   * Track a custom event with optional properties
+   * @param code - Event code identifying the action (e.g., 'button_click', 'page_view')
+   * @param properties - Optional object containing event-specific data
+   * @returns Object with success status and unique event ID
+   * @example
+   * ```typescript
+   * orwel.track('button_click', {
+   *   buttonId: 'cta-header',
+   *   page: '/pricing',
+   *   campaign: 'feature_highlight'
+   * });
+   * ```
+   */
   track: (code: string, properties?: Record<string, any>) => { success: boolean; eventId: string };
+
+  /**
+   * Update the current session with custom properties
+   * @param properties - Optional object containing session data to store
+   * @param isFinalUpdate - Whether this is the final update before session ends
+   * @returns Object with success status and session ID
+   * @example
+   * ```typescript
+   * orwel.session({
+   *   currentPage: '/checkout',
+   *   cartTotal: 99.99,
+   *   experimentGroup: 'variant_b'
+   * });
+   * ```
+   */
   session: (properties?: Record<string, any>, isFinalUpdate?: boolean) => { success: boolean; sessionId: string };
+
+  /**
+   * Enable monitoring of performance metrics, errors, and user interactions
+   * @param options - Optional configuration for which monitoring features to enable
+   * @returns Object with success status
+   * @example
+   * ```typescript
+   * orwel.monitor({
+   *   performance: true,
+   *   errors: true,
+   *   webVitals: true
+   * });
+   * ```
+   */
   monitor: (options?: MonitorOptions) => { success: boolean };
+
+  /**
+   * Manually flush the event queue, sending all pending events to the server
+   * @returns Promise resolving to object with success status and count of events sent
+   * @example
+   * ```typescript
+   * const result = await orwel.flush();
+   * console.log(`Sent ${result.count} events`);
+   * ```
+   */
   flush: () => Promise<{ success: boolean; count: number }>;
-  form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean };
+
+  /**
+   * Track interactions with a specific form element
+   * @param formElement - The HTML form element to track
+   * @param options - Optional configuration for form tracking behavior
+   * @returns Object with success status
+   * @example
+   * ```typescript
+   * const form = document.getElementById('signup-form');
+   * orwel.form(form, {
+   *   trackSubmit: true,
+   *   trackAbandon: true
+   * });
+   * ```
+   */
+  form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean; error?: string };
 }
 
 export interface Session {
@@ -31,32 +143,61 @@ export interface Session {
   customProperties?: Record<string, any>;
 }
 
+/**
+ * Configuration options for initializing the Orwel SDK
+ */
 export interface Config {
+  /** Your Orwel API key (starts with 'orwel_') */
   apiKey: string;
+  /** Automatically enable performance and error monitoring */
   autoMonitor?: boolean;
+  /** Enable automatic event detection based on user interactions */
   autoEventDetection?: boolean;
+  /** Configuration options for automatic event detection */
   eventDetectionOptions?: AutoEventDetectionOptions;
+  /** Enable debug logging to console */
   debug?: boolean;
+  /** Enable verbose debug logging with detailed information */
   verbose?: boolean;
+  /** Additional configuration properties */
   [key: string]: any;
 }
 
+/**
+ * Configuration options for monitoring features
+ */
 export interface MonitorOptions {
+  /** Monitor page load times and navigation performance */
   performance?: boolean;
+  /** Monitor JavaScript errors and unhandled exceptions */
   errors?: boolean;
+  /** Monitor console errors and warnings */
   console?: boolean;
+  /** Monitor network requests and responses */
   network?: boolean;
+  /** Monitor memory usage and garbage collection */
   memory?: boolean;
+  /** Monitor Core Web Vitals (LCP, FID, CLS, TTFB, FCP) */
   webVitals?: boolean;
 }
 
+/**
+ * Configuration options for form tracking
+ */
 export interface FormOptions {
+  /** Custom identifier for the form (auto-generated if not provided) */
   formId?: string;
+  /** Track when form fields receive focus */
   trackFocus?: boolean;
+  /** Track input events as user types */
   trackInput?: boolean;
+  /** Track change events when field values change */
   trackChange?: boolean;
+  /** Track form submission events */
   trackSubmit?: boolean;
+  /** Track form abandonment when user leaves without submitting */
   trackAbandon?: boolean;
+  /** Callback function called after form submission attempt */
   submitCallback?: (result: { success: boolean; error?: Error }) => void;
 }
 

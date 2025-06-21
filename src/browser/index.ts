@@ -1,5 +1,14 @@
 import { Orwel, Config, OrwelEvent, FormOptions } from "../types";
-import { createLogger, generateUUID } from "../utils";
+import { 
+  createLogger, 
+  generateUUID, 
+  validateRequired, 
+  validateString, 
+  validateObject, 
+  validateApiKey, 
+  validateEventCode,
+  validateEmailIfPresent 
+} from "../utils";
 import { startMonitoring } from "../monitoring";
 import { createStorage } from "./storage";
 import { createVisitorManager } from "./visitor";
@@ -86,6 +95,16 @@ export function createBrowserImplementation(): Orwel {
 
   const orwel: Orwel = {
     init: (opts: Config) => {
+      try {
+        validateRequired(opts, 'config');
+        validateObject(opts, 'config');
+        validateApiKey(opts.apiKey);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
+        logger.error("Failed to initialize Orwel SDK", { error: errorMessage });
+        throw new Error(`Orwel SDK initialization failed: ${errorMessage}`);
+      }
+      
       config = opts;
       
       // Reinicializar logger con la configuración de depuración
@@ -94,7 +113,7 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK v1.2.0", {
+      logger.info("Initializing Orwel SDK v1.3.0", {
         debug: opts.debug,
         verbose: opts.verbose,
         autoEventDetection: opts.autoEventDetection
@@ -239,41 +258,74 @@ export function createBrowserImplementation(): Orwel {
     },
     
     identify: (traits: Record<string, any> = {}) => {
-      return visitorManager.identify(traits);
+      try {
+        validateObject(traits, 'traits');
+        validateEmailIfPresent(traits);
+        return visitorManager.identify(traits);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown identify error';
+        logger.error("Invalid parameters for identify", { error: errorMessage });
+        throw new Error(`Identify failed: ${errorMessage}`);
+      }
     },
     
     conversion: (code: string, properties: Record<string, any> = {}) => {
-      return visitorManager.conversion(code, properties);
+      try {
+        validateEventCode(code);
+        validateObject(properties, 'properties');
+        validateEmailIfPresent(properties);
+        return visitorManager.conversion(code, properties);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown conversion error';
+        logger.error("Invalid parameters for conversion", { error: errorMessage, code, properties });
+        throw new Error(`Conversion failed: ${errorMessage}`);
+      }
     },
     
     track: (code: string, properties = {}) => {
-      const eventId = generateUUID();
-      logger.info("Tracking event", { code, eventId });
+      try {
+        validateEventCode(code);
+        validateObject(properties, 'properties');
+        
+        const eventId = generateUUID();
+        logger.info("Tracking event", { code, eventId });
 
-      // Capturar información completa de la URL
-      const locationData = {
-        path: window.location.pathname,
-        url: window.location.href,
-        hash: window.location.hash,
-        search: window.location.search,
-        hostname: window.location.hostname
-      };
-      
-      queueManager.addEvent({
-        type: "track", 
-        code,
-        location: locationData,
-        properties,
-        event: { id: eventId, code, source: "orwel-sdk" } ,
-        timestamp: new Date().toISOString()
-      });
-      
-      logger.success("Event tracked", { code, eventId });
-      return { success: true, eventId };
+        // Capturar información completa de la URL
+        const locationData = {
+          path: window.location.pathname,
+          url: window.location.href,
+          hash: window.location.hash,
+          search: window.location.search,
+          hostname: window.location.hostname
+        };
+        
+        queueManager.addEvent({
+          type: "track", 
+          code,
+          location: locationData,
+          properties,
+          event: { id: eventId, code, source: "orwel-sdk" } ,
+          timestamp: new Date().toISOString()
+        });
+        
+        logger.success("Event tracked", { code, eventId });
+        return { success: true, eventId };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown track error';
+        logger.error("Invalid parameters for track", { error: errorMessage, code, properties });
+        throw new Error(`Track failed: ${errorMessage}`);
+      }
     },
     
     session: (properties: Record<string, any> = {}) => {
-      return sessionManager.updateSession(properties);
+      try {
+        validateObject(properties, 'properties');
+        return sessionManager.updateSession(properties);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown session error';
+        logger.error("Invalid parameters for session", { error: errorMessage });
+        throw new Error(`Session update failed: ${errorMessage}`);
+      }
     },
     
     monitor: (options = {}) => {
@@ -292,17 +344,19 @@ export function createBrowserImplementation(): Orwel {
     },
     
     form: (formElement: HTMLFormElement, options?: FormOptions) => {
-      if (!formElement) {
-        logger.error("Cannot track form: no form element provided");
-        return { success: false };
-      }
-      
       try {
+        validateRequired(formElement, 'formElement');
+        if (!(formElement instanceof HTMLFormElement)) {
+          throw new Error('formElement must be an HTMLFormElement');
+        }
+        validateObject(options, 'options');
+        
         formTracker.trackForm(formElement, options);
         return { success: true };
       } catch (error) {
-        logger.error("Error tracking form", { error });
-        return { success: false };
+        const errorMessage = error instanceof Error ? error.message : 'Unknown form error';
+        logger.error("Invalid parameters for form tracking", { error: errorMessage });
+        return { success: false, error: errorMessage };
       }
     }
   };
