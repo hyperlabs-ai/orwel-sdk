@@ -2,8 +2,10 @@ import { Orwel, Config, MonitorOptions } from './types';
 import { isBrowser } from './utils';
 import { createBrowserImplementation } from './browser';
 import { createServerImplementation } from './server';
+import { SDK_VERSION } from './constants';
 
-export const SDK_VERSION = '1.3.3';
+// Export SDK_VERSION for external use
+export { SDK_VERSION };
 
 // Create and export the orwel instance based on environment
 const orwel: Orwel = isBrowser ? createBrowserImplementation() : createServerImplementation();

@@ -1,6 +1,6 @@
 import { Visitor } from '../types';
 import { generateUUID, collectBrowserInfo, createLogger, createBrowserFingerprint } from '../utils';
-import { SDK_VERSION } from '../index';
+import { SDK_VERSION } from '../constants';
 
 /**
  * Creates a visitor manager that handles visitor identification and persistence

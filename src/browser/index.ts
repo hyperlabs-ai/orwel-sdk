@@ -17,7 +17,7 @@ import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
 import { createAutoEventDetection } from "../auto-detection";
-import { SDK_VERSION } from "../index";
+import { SDK_VERSION } from "../constants";
 
 /**
  * Creates a browser implementation of the Orwel SDK
