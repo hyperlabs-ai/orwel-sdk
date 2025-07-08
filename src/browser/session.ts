@@ -92,7 +92,7 @@ export function createSessionManager(
   };
 
   // Función para enviar datos de sesión acumulados
-  const flushSessionBuffer = debounce(() => {
+  const flushSessionBuffer = () => {
     if (Object.keys(sessionBuffer).length > 0) {
       logger.debug("Flushing session buffer", {
         properties: Object.keys(sessionBuffer),
@@ -130,7 +130,9 @@ export function createSessionManager(
       // Limpiar el buffer
       sessionBuffer = {};
     }
-  }, 1000);
+  };
+
+  const debouncedFlush = debounce(flushSessionBuffer, 1000);
 
   // Actualizar datos de sesión
   const updateSession = (properties: Partial<Session> = {}, isFinalUpdate: boolean = false) => {
@@ -138,33 +140,16 @@ export function createSessionManager(
       properties: Object.keys(properties),
       isFinalUpdate
     });
-
-    // Si estamos cerrando la sesión, asegurarnos de que tenga todos los campos necesarios
-    if (properties.status === 'closed') {
-      properties.finishedAt = properties.finishedAt || new Date().toISOString();
-    }
-
-    // For final updates, update session directly without using buffer
-    if (isFinalUpdate) {
-      session = {
-        ...session,
-        ...properties,
-        updatedAt: new Date().toISOString()
-      };
-      saveSession();
-      return { success: true, sessionId: session.id };
-    }
-
+    
     // Añadir propiedades al buffer
     sessionBuffer = { ...sessionBuffer, ...properties };
 
-    // Si es un cierre de sesión, forzar flush inmediato
-    if (properties.status === 'closed') {
+    if (isFinalUpdate) {
       flushSessionBuffer();
     } else {
-      flushSessionBuffer();
+      debouncedFlush();
     }
-
+    
     logger.success("Session data queued for update", { id: session.id });
     return { success: true, sessionId: session.id };
   };

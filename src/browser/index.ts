@@ -174,10 +174,13 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
+        const sectionEngagements = autoDetection?.getDetectionEngine().getSectionEngagementData() || [];
+
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
-          status: 'closed'
-        }, true); 
+          status: 'closed',
+          sectionEngagements: sectionEngagements
+        }, true);
         
         const pendingEvents = queueManager.getQueue();
         if (pendingEvents.length > 0) {

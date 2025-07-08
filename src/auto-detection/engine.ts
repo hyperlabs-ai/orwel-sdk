@@ -4,19 +4,22 @@ import {
   DetectionResult, 
   DetectionContext, 
   PageContext,
-  DetectionStrategy 
+  DetectionStrategy,
+  SectionEngagement
 } from '../types';
 import { createLogger } from '../utils';
 import { EventCatalogManager } from './catalog-manager';
 import { NavigationDetectionStrategy } from './strategies/navigation';
 import { EcommerceDetectionStrategy } from './strategies/ecommerce';
 import { AuthDetectionStrategy } from './strategies/auth';
+import { SectionVisibilityStrategy } from './strategies/section-visibility';
 
 /**
  * Main detection engine that coordinates all detection strategies
  */
 export class EventDetectionEngine {
   private strategies: Map<string, DetectionStrategy> = new Map();
+  private sectionVisibilityStrategy: SectionVisibilityStrategy;
   private pageContext: PageContext;
   private isInitialized: boolean = false;
   private globalListeners: Array<{ element: EventTarget; type: string; listener: EventListener }> = [];
@@ -28,6 +31,7 @@ export class EventDetectionEngine {
     private logger: ReturnType<typeof createLogger>
   ) {
     this.pageContext = this.createPageContext();
+    this.sectionVisibilityStrategy = new SectionVisibilityStrategy(this.logger);
   }
 
   async initialize(): Promise<void> {
@@ -36,6 +40,9 @@ export class EventDetectionEngine {
       
       // Initialize detection strategies based on enabled categories
       this.initializeStrategies();
+      
+      // Initialize section visibility tracking
+      this.sectionVisibilityStrategy.initialize();
       
       // Set up global DOM listeners with error handling
       this.setupGlobalListeners();
@@ -137,8 +144,8 @@ export class EventDetectionEngine {
     this.globalListeners.push({ element: document, type: 'visibilitychange', listener: visibilityListener });
 
     // Scroll detection
-    const scrollListener = () => {
-      this.handleScrollEvent();
+    const scrollListener = (event: Event) => {
+      this.handleDOMEvent('scroll', event);
     };
     window.addEventListener('scroll', scrollListener, { passive: true });
     this.globalListeners.push({ element: window, type: 'scroll', listener: scrollListener });
@@ -205,6 +212,13 @@ export class EventDetectionEngine {
   }
 
   private handlePageChange(): void {
+    // Reset strategies' internal state
+    this.strategies.forEach(strategy => {
+      if (strategy.reset) {
+        strategy.reset();
+      }
+    });
+
     // Update page context
     this.pageContext = this.createPageContext();
     
@@ -236,50 +250,6 @@ export class EventDetectionEngine {
       
       this.processDetectionResult(result);
     }
-  }
-
-  private handleScrollEvent(): void {
-    if (this.catalogManager.isEventEnabled('scroll')) {
-      const scrollPercent = Math.round(
-        (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100
-      );
-      
-      // Only track meaningful scroll milestones
-      const milestones = [25, 50, 75, 90, 100];
-      const milestone = milestones.find(m => 
-        scrollPercent >= m && !this.hasTrackedScrollMilestone(m)
-      );
-      
-      if (milestone) {
-        const result: DetectionResult = {
-          eventCode: 'scroll',
-          confidence: 1.0,
-          data: {
-            depth: milestone,
-            scroll_y: window.scrollY,
-            page_height: document.body.scrollHeight,
-            viewport_height: window.innerHeight
-          },
-          trigger: 'dom_event',
-          timestamp: Date.now()
-        };
-        
-        this.processDetectionResult(result);
-        this.markScrollMilestone(milestone);
-      }
-    }
-  }
-
-  private hasTrackedScrollMilestone(milestone: number): boolean {
-    // Simple implementation - could be enhanced with session storage
-    return (window as any).__orwelScrollMilestones?.has(milestone) || false;
-  }
-
-  private markScrollMilestone(milestone: number): void {
-    if (!(window as any).__orwelScrollMilestones) {
-      (window as any).__orwelScrollMilestones = new Set();
-    }
-    (window as any).__orwelScrollMilestones.add(milestone);
   }
 
   private detectVisibleElements(): void {
@@ -332,6 +302,13 @@ export class EventDetectionEngine {
     });
   }
 
+  public getSectionEngagementData(): SectionEngagement[] {
+    if (!this.isInitialized) {
+      return [];
+    }
+    return this.sectionVisibilityStrategy.getAggregatedData();
+  }
+
   cleanup(): void {
     this.logger.debug('Cleaning up event detection engine');
     
@@ -348,6 +325,8 @@ export class EventDetectionEngine {
       }
     });
     this.strategies.clear();
+    
+    this.sectionVisibilityStrategy.cleanup();
     
     this.logger.debug('Event detection engine cleaned up');
   }
