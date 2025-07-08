@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - 2024-06-21
+# [1.3.2] - 2025-07-08
+
+### Added
+- **Section Engagement Tracking**: New capability to track user engagement with specific page sections.
+  - Monitors visibility time and interaction with any element marked with a `data-orwel-section` attribute.
+  - Uses the efficient `IntersectionObserver` API to measure metrics like total time in viewport and maximum visibility percentage.
+  - Aggregated engagement data is attached directly to the user session for deep behavioral analysis without generating extra events.
+
+### Fixed
+- **Session Closure on Page Unload**: Corrected a critical bug where sessions were not reliably marked as "closed" when a user leaves the page.
+  - Reworked the `sessionManager` to handle final updates immediately, bypassing the debounce mechanism.
+  - Ensured the final session update is correctly queued and sent via `sendBeacon` during the `beforeunload` event.
+
+## [1.3.1] - 2025-06-21
 
 ### Fixed
 - **IntelliSense Support**: Fixed TypeScript IntelliSense not showing proper types in client projects
@@ -23,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced developer experience with better IntelliSense support
 - Debug guide for troubleshooting IntelliSense issues
 
-## [1.3.0] - 2024-06-20
+## [1.3.0] - 2025-06-20
 
 ### Added
 - **Parameter Validation**: Comprehensive runtime validation for all SDK methods

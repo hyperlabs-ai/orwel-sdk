@@ -7,6 +7,9 @@ import { createLogger, throttle } from '../../utils';
 export class NavigationDetectionStrategy implements DetectionStrategy {
   readonly category = 'navigation' as const;
   private hoverTimeouts: WeakMap<Element, number> = new WeakMap();
+  private lastScrollY: number;
+  private lastScrollTimestamp: number;
+  private trackedMilestones: Set<number>;
   private searchSelectors = [
     'input[type="search"]',
     'input[name*="search"]',
@@ -19,10 +22,30 @@ export class NavigationDetectionStrategy implements DetectionStrategy {
   constructor(
     readonly eventCode: string,
     private logger: ReturnType<typeof createLogger>
-  ) {}
+  ) {
+    this.lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    this.lastScrollTimestamp = Date.now();
+    this.trackedMilestones = new Set();
+  }
+
+  reset(): void {
+    this.trackedMilestones.clear();
+    this.lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    this.lastScrollTimestamp = Date.now();
+  }
 
   detect(context: DetectionContext): DetectionResult | null {
-    if (!context.element || !context.event) return null;
+    if (!context.event) {
+      return null;
+    }
+
+    if (this.eventCode === 'scroll') {
+      return this.detectScroll(context);
+    }
+
+    if (!context.element) {
+      return null;
+    }
 
     switch (this.eventCode) {
       case 'click':
@@ -217,6 +240,59 @@ export class NavigationDetectionStrategy implements DetectionStrategy {
       trigger: 'dom_event',
       timestamp: Date.now()
     };
+  }
+
+  private detectScroll(context: DetectionContext): DetectionResult | null {
+    const { event } = context;
+    if (event?.type !== 'scroll') {
+      return null;
+    }
+
+    const now = Date.now();
+    const timeDelta = now - this.lastScrollTimestamp;
+    const scrollY = window.scrollY;
+    const scrollDelta = scrollY - this.lastScrollY;
+    let scrollSpeed = 0;
+
+    if (timeDelta > 0) {
+      scrollSpeed = Math.abs(scrollDelta / (timeDelta / 1000));
+    }
+
+    this.lastScrollY = scrollY;
+    this.lastScrollTimestamp = now;
+
+    const pageHeight = document.body.scrollHeight;
+    const viewportHeight = window.innerHeight;
+
+    if (pageHeight <= viewportHeight) {
+      return null;
+    }
+
+    const scrollPercent = Math.round((scrollY / (pageHeight - viewportHeight)) * 100);
+
+    const milestones = [25, 50, 75, 90, 100];
+    const milestone = milestones.find(
+      m => scrollPercent >= m && !this.trackedMilestones.has(m)
+    );
+
+    if (milestone) {
+      this.trackedMilestones.add(milestone);
+      return {
+        eventCode: 'scroll',
+        confidence: 1.0,
+        data: {
+          depth: milestone,
+          scroll_y: scrollY,
+          page_height: pageHeight,
+          viewport_height: viewportHeight,
+          scroll_speed: parseFloat(scrollSpeed.toFixed(2))
+        },
+        trigger: 'dom_event',
+        timestamp: now
+      };
+    }
+
+    return null;
   }
 
   private analyzeElement(element: Element): ElementAnalysis {

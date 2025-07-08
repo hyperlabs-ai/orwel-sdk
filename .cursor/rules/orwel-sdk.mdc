@@ -1,0 +1,31 @@
+---
+description: Orwel sdk repo full description
+globs:
+alwaysApply: false
+---
+Resumen completo de el funcionamiento del proyecto:
+Implementación Específica por Entorno: El SDK tiene una implementación para el navegador (con toda la funcionalidad) y una para el servidor (que no hace nada) para garantizar la compatibilidad.
+Arquitectura Principal (Navegador): La implementación del navegador es muy modular y se basa en "managers" especializados:
+API Client: Envía los datos al backend de Orwel.
+Storage Manager: Persiste la cola de eventos y los IDs de sesión y visitante en localStorage.
+Queue Manager: Agrupa los eventos para enviarlos en lotes, optimizando el rendimiento y evitando la pérdida de datos usando localStorage y navigator.sendBeacon.
+Session & Visitor Managers: Gestionan el ciclo de vida de la sesión del usuario y la identificación de visitantes únicos.
+API Pública (interfaz Orwel): El SDK expone una API clara para los desarrolladores:
+init(): Para configurar e inicializar.
+track()/conversion(): Para enviar eventos personalizados manualmente.
+identify(): Para asociar un usuario a sus acciones.
+session(): Para enriquecer los datos de la sesión.
+monitor(): Para activar el monitoreo automático.
+form(): Para el seguimiento de formularios.
+Detección Automática de Eventos: Esta es una característica clave y muy potente. Funciona a través de un motor que:
+Escucha eventos genéricos del navegador (clics, envíos de formularios, cambios de URL).
+Utiliza un conjunto de Estrategias de Detección especializadas para identificar eventos significativos a partir de los genéricos (p. ej., detectar un "clic de inicio de sesión" a partir de un evento de clic normal).
+El sistema es extensible, permitiendo añadir nuevas estrategias con facilidad.
+Maneja automáticamente el seguimiento de page_view en aplicaciones de una sola página (SPAs).
+Monitoreo: El SDK puede monitorear e informar automáticamente sobre:
+Core Web Vitals.
+Errores de JavaScript.
+Peticiones de red.
+Métricas de rendimiento.
+Uso de memoria.
+En resumen, es un SDK de analítica del lado del cliente muy bien arquitecturado, completo y robusto. Sigue las mejores prácticas de la industria en cuanto a recolección de datos, eficiencia y extensibilidad.

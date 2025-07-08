@@ -113,7 +113,7 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK v1.3.0", {
+      logger.info("Initializing Orwel SDK v1.3.2", {
         debug: opts.debug,
         verbose: opts.verbose,
         autoEventDetection: opts.autoEventDetection
@@ -174,12 +174,15 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
+        const sectionEngagements = autoDetection?.getDetectionEngine().getSectionEngagementData() || [];
+
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
-          status: 'closed'
-        }, true); 
+          status: 'closed',
+          sectionEngagements: sectionEngagements
+        }, true);
         
-        const pendingEvents = queueManager.getQueue();
+        const pendingEvents = queueManager.getQueueAndClear();
         if (pendingEvents.length > 0) {
           const hardcodedApiUrl = "https://api.orwel.io/ingest"; // Use the hardcoded URL from api.ts
           

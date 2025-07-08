@@ -141,6 +141,19 @@ export interface Session {
   memory?: Record<string, any>;
   networkRequests?: Array<Record<string, any>>;
   customProperties?: Record<string, any>;
+  sectionEngagements?: SectionEngagement[];
+}
+
+export interface SectionEngagement {
+  sectionId: string;
+  totalVisibilityMs: number;
+  maxVisibilityPercentage: number;
+  wordCount: number;
+  interactions: {
+    clicks: number;
+    scrollsInside: number;
+  };
+  domSnapshot?: string; // Opcional para el futuro
 }
 
 /**
@@ -262,6 +275,7 @@ export interface DetectionStrategy {
   readonly eventCode: string;
   detect(context: DetectionContext): DetectionResult | null;
   cleanup?(): void;
+  reset?(): void;
 }
 
 export interface DetectionContext {
