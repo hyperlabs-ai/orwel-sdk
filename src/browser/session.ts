@@ -141,38 +141,26 @@ export function createSessionManager(
       isFinalUpdate
     });
     
+    // Create a copy of properties to avoid mutating the input parameter
+    const updatedProperties = { ...properties };
+    
     // Automatically set finishedAt when status is set to closed
-    if (properties.status === 'closed' && !properties.finishedAt) {
-      properties.finishedAt = new Date().toISOString();
+    if (updatedProperties.status === 'closed' && !updatedProperties.finishedAt) {
+      updatedProperties.finishedAt = new Date().toISOString();
       logger.debug("Automatically setting finishedAt timestamp for closed session", { 
-        finishedAt: properties.finishedAt 
+        finishedAt: updatedProperties.finishedAt 
       });
     }
     
+    // Always update the buffer first to prevent data loss
+    sessionBuffer = { ...sessionBuffer, ...updatedProperties };
+    
     if (isFinalUpdate) {
-      // For final updates (like session closure), bypass the buffer and update immediately
-      session = {
-        ...session,
-        ...properties,
-        updatedAt: new Date().toISOString()
-      };
-      
-      saveSession();
-      
-      // Send the final session event directly to the queue
-      queue.push({
-        type: "session",
-        isNewSession: false,
-        sessionData: { ...session },
-      });
-      
-      pendingSessionUpdate = true;
-      queue.save();
-      
+      // For final updates, flush the buffer immediately to include all pending changes
+      flushSessionBuffer();
       logger.success("Final session update applied immediately", { id: session.id });
     } else {
-      // For regular updates, use the buffer
-      sessionBuffer = { ...sessionBuffer, ...properties };
+      // For regular updates, use the debounced flush
       debouncedFlush();
       logger.success("Session data queued for update", { id: session.id });
     }
