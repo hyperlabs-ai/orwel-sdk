@@ -1,0 +1,5 @@
+/**
+ * Orwel SDK version
+ * This is used for tracking and debugging purposes
+ */
+export const SDK_VERSION = '1.3.3'; 
