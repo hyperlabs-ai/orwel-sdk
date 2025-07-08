@@ -182,7 +182,7 @@ export function createBrowserImplementation(): Orwel {
           sectionEngagements: sectionEngagements
         }, true);
         
-        const pendingEvents = queueManager.getQueue();
+        const pendingEvents = queueManager.getQueueAndClear();
         if (pendingEvents.length > 0) {
           const hardcodedApiUrl = "https://api.orwel.io/ingest"; // Use the hardcoded URL from api.ts
           

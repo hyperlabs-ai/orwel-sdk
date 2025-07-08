@@ -243,6 +243,14 @@ export function createQueueManager(
     }
   };
 
+  const getQueueAndClear = (): OrwelEvent[] => {
+    const events = [...queue];
+    queue.length = 0;
+    saveQueue(); // Save the empty queue
+    logger.debug("Queue cleared for beacon send", { count: events.length });
+    return events;
+  };
+
   // Start circuit breaker reset interval
   setInterval(() => {
     if (failureCount > 0 && checkCircuitBreaker()) {
@@ -256,6 +264,8 @@ export function createQueueManager(
     addEvent,
     findAndUpdateEvent,
     flush,
-    getQueue: () => [...queue]
+    getQueue: () => [...queue],
+    getQueueAndClear,
+    save: saveQueue,
   };
 } 
