@@ -17,6 +17,7 @@ import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
 import { createAutoEventDetection } from "../auto-detection";
+import { SDK_VERSION } from "../index";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -113,7 +114,7 @@ export function createBrowserImplementation(): Orwel {
         verbose: opts.verbose || false 
       });
       
-      logger.info("Initializing Orwel SDK v1.3.2", {
+      logger.info(`Initializing Orwel SDK v${SDK_VERSION}`, {
         debug: opts.debug,
         verbose: opts.verbose,
         autoEventDetection: opts.autoEventDetection
@@ -174,7 +175,7 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
-        const sectionEngagements = autoDetection?.getDetectionEngine().getSectionEngagementData() || [];
+        const sectionEngagements = autoDetection?.getDetectionEngine()?.getSectionEngagementData() || [];
 
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
