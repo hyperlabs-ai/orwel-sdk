@@ -174,7 +174,7 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
-        const sectionEngagements = autoDetection?.getDetectionEngine().getSectionEngagementData() || [];
+        const sectionEngagements = autoDetection?.getDetectionEngine()?.getSectionEngagementData() || [];
 
         sessionManager.updateSession({
           finishedAt: new Date().toISOString(),
