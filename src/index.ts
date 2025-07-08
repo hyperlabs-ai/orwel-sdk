@@ -3,6 +3,8 @@ import { isBrowser } from './utils';
 import { createBrowserImplementation } from './browser';
 import { createServerImplementation } from './server';
 
+export const SDK_VERSION = '1.3.3';
+
 // Create and export the orwel instance based on environment
 const orwel: Orwel = isBrowser ? createBrowserImplementation() : createServerImplementation();
 

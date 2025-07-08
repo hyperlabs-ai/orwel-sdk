@@ -1,5 +1,6 @@
 import { Visitor } from '../types';
 import { generateUUID, collectBrowserInfo, createLogger, createBrowserFingerprint } from '../utils';
+import { SDK_VERSION } from '../index';
 
 /**
  * Creates a visitor manager that handles visitor identification and persistence
@@ -143,7 +144,7 @@ export function createVisitorManager(
         type: 'conversion',
         code,
         properties,
-        source: 'orwel-sdk',
+        source: `orwel-sdk-v${SDK_VERSION}`,
         timestamp: new Date().toISOString()
       });
       queue.save();
