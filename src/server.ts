@@ -1,5 +1,6 @@
 import { Orwel, Config, FormOptions } from './types';
 import { createLogger } from './utils';
+import { SDK_VERSION } from './constants';
 
 // Create a server implementation (no-op)
 export function createServerImplementation(): Orwel {
@@ -43,7 +44,7 @@ export function createServerImplementation(): Orwel {
         verbose: opts.verbose || false
       });
       
-      logger.info('Initializing Orwel SDK in server environment', {
+      logger.info(`Initializing Orwel SDK v${SDK_VERSION} in server environment`, {
         debug: opts.debug,
         verbose: opts.verbose
       });
