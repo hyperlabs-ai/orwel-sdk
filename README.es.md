@@ -635,3 +635,67 @@ MIT — construido con ✨ por orwel.io
 - [Referencia API](https://api.orwel.io)
 - [GitHub Issues](https://github.com/hyperlabs-ai/orwel-sdk/issues)
 - [Foro de la Comunidad](https://community.orwel.io) 
+
+## Seguimiento de Visibilidad de Secciones
+
+### Uso de `data-orwel-section`
+
+El SDK de Orwel proporciona seguimiento automático de la visibilidad de secciones en tu sitio web. Esta característica te ayuda a entender cómo los usuarios interactúan con diferentes secciones de tu contenido.
+
+#### Cómo implementarlo
+
+1. Añade el atributo `data-orwel-section` a cualquier elemento HTML que desees rastrear:
+
+```html
+<div data-orwel-section="banner-principal">
+  <!-- Tu contenido aquí -->
+</div>
+
+<section data-orwel-section="caracteristicas-producto">
+  <!-- Tu contenido aquí -->
+</section>
+```
+
+2. El SDK detectará y rastreará automáticamente estas secciones, midiendo:
+   - Tiempo total (en milisegundos) que la sección estuvo visible en el viewport
+   - Porcentaje máximo de visibilidad alcanzado
+   - Recuento de palabras dentro de la sección
+   - Interacciones del usuario con la sección (clics, desplazamientos)
+
+#### Estructura del Payload
+
+Los datos de visibilidad de secciones se incluirán en el payload del evento bajo la propiedad `sectionEngagement`:
+
+```json
+{
+  "sectionEngagement": [
+    {
+      "sectionId": "banner-principal",
+      "totalVisibilityMs": 12500,
+      "maxVisibilityPercentage": 1.0,
+      "wordCount": 45,
+      "interactions": {
+        "clicks": 2,
+        "scrollsInside": 1
+      }
+    },
+    {
+      "sectionId": "caracteristicas-producto",
+      "totalVisibilityMs": 8200,
+      "maxVisibilityPercentage": 0.75,
+      "wordCount": 120,
+      "interactions": {
+        "clicks": 0,
+        "scrollsInside": 3
+      }
+    }
+  ]
+}
+```
+
+#### Mejores Prácticas
+
+- Utiliza IDs descriptivos que reflejen el contenido o propósito de la sección
+- Aplícalo a secciones de contenido significativas en lugar de elementos pequeños de UI
+- Considera el flujo natural de lectura al decidir qué secciones rastrear
+- Rastrea secciones clave de conversión para entender la correlación entre el engagement y las conversiones 

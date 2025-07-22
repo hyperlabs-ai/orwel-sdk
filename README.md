@@ -701,4 +701,68 @@ Need help? Check out:
 - [GitHub Issues](https://github.com/hyperlabs-ai/orwel-sdk/issues)
 - [Community Forum](https://community.orwel.io)
 
+## Section Visibility Tracking
+
+### Using `data-orwel-section`
+
+The Orwel SDK provides automatic tracking of section visibility on your website. This feature helps you understand how users engage with different sections of your content.
+
+#### How to implement
+
+1. Add the `data-orwel-section` attribute to any HTML element you want to track:
+
+```html
+<div data-orwel-section="hero-banner">
+  <!-- Your content here -->
+</div>
+
+<section data-orwel-section="product-features">
+  <!-- Your content here -->
+</section>
+```
+
+2. The SDK will automatically detect and track these sections, measuring:
+   - Total time (in milliseconds) the section was visible in the viewport
+   - Maximum visibility percentage achieved
+   - Word count within the section
+   - User interactions with the section (clicks, scrolls)
+
+#### Payload Structure
+
+The section visibility data will be included in the event payload under the `sectionEngagement` property:
+
+```json
+{
+  "sectionEngagement": [
+    {
+      "sectionId": "hero-banner",
+      "totalVisibilityMs": 12500,
+      "maxVisibilityPercentage": 1.0,
+      "wordCount": 45,
+      "interactions": {
+        "clicks": 2,
+        "scrollsInside": 1
+      }
+    },
+    {
+      "sectionId": "product-features",
+      "totalVisibilityMs": 8200,
+      "maxVisibilityPercentage": 0.75,
+      "wordCount": 120,
+      "interactions": {
+        "clicks": 0,
+        "scrollsInside": 3
+      }
+    }
+  ]
+}
+```
+
+#### Best Practices
+
+- Use descriptive IDs that reflect the content or purpose of the section
+- Apply to meaningful content sections rather than small UI elements
+- Consider the natural reading flow when deciding which sections to track
+- Track key conversion sections to understand engagement correlation with conversions
+
 
