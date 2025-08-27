@@ -26,6 +26,7 @@ export function createBrowserImplementation(): Orwel {
   // Configuración y estado
   let config: Config = {} as Config;
   let isMonitoring = false;
+  let beforeUnloadExecuted = false;
   let logger = createLogger({ debug: false, verbose: false });
   let autoDetection: ReturnType<typeof createAutoEventDetection> | null = null;
 
@@ -176,6 +177,9 @@ export function createBrowserImplementation(): Orwel {
       
       // Configurar event listeners
       window.addEventListener("beforeunload", (event) => {
+        if (beforeUnloadExecuted) return;
+        beforeUnloadExecuted = true;
+        
         const sectionEngagements = autoDetection?.getDetectionEngine()?.getSectionEngagementData() || [];
 
         sessionManager.updateSession({
@@ -186,7 +190,7 @@ export function createBrowserImplementation(): Orwel {
         
         const pendingEvents = queueManager.getQueueAndClear();
         if (pendingEvents.length > 0) {
-          const hardcodedApiUrl = "https://api.orwel.io/ingest"; // Use the hardcoded URL from api.ts
+          const hardcodedApiUrl = "https://api.orwel.io/ingest";
           
           if (navigator.sendBeacon) {
             try {
@@ -201,7 +205,6 @@ export function createBrowserImplementation(): Orwel {
               const xhr = new XMLHttpRequest();
               xhr.open("POST", hardcodedApiUrl, false); 
               xhr.setRequestHeader("Content-Type", "application/json");
-              // Config is still needed for apiKey
               if (config && config.apiKey) {
                 xhr.setRequestHeader("X-Orwel-Key", config.apiKey);
               } else {
@@ -217,7 +220,7 @@ export function createBrowserImplementation(): Orwel {
       });
       
       window.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") {
+        if (document.visibilityState === "hidden" && !beforeUnloadExecuted) {
           logger.debug("Page visibility changed to hidden, flushing queue");
           orwel.flush();
         }
