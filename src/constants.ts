@@ -2,4 +2,4 @@
  * Orwel SDK version
  * This is used for tracking and debugging purposes
  */
-export const SDK_VERSION = '1.4.3'; 
+export const SDK_VERSION = '1.4.4'; 

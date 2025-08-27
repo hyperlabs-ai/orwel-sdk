@@ -23,17 +23,17 @@ import { SDK_VERSION } from "../constants";
  * Creates a browser implementation of the Orwel SDK
  */
 export function createBrowserImplementation(): Orwel {
-  // Configuración y estado
+  // Configuration and state
   let config: Config = {} as Config;
   let isMonitoring = false;
   let beforeUnloadExecuted = false;
   let logger = createLogger({ debug: false, verbose: false });
   let autoDetection: ReturnType<typeof createAutoEventDetection> | null = null;
 
-  // Crear el administrador de almacenamiento
+  // Create the storage manager
   const storage = createStorage(logger);
   
-  // Crear el cliente API con getters para acceder a la configuración actualizada
+  // Create the API client with getters to access the updated configuration
   const apiClient = createApiClient(
     () => config,
     () => visitorManager.getVisitor(),
@@ -41,7 +41,7 @@ export function createBrowserImplementation(): Orwel {
     logger
   );
   
-  // Crear el administrador de cola primero
+  // Create the queue manager first
   const queueManager = createQueueManager(
     {
       loadQueue: storage.loadQueue,
@@ -49,13 +49,13 @@ export function createBrowserImplementation(): Orwel {
     },
     apiClient,
     {
-      setPendingUpdate: (isPending: boolean) => {},  // Temporal, será reemplazado
-      flushSessionBuffer: () => {}  // Temporal, será reemplazado
+      setPendingUpdate: (isPending: boolean) => {},  // Temporary, will be replaced
+      flushSessionBuffer: () => {}  // Temporary, will be replaced
     },
     logger
   );
 
-  // Crear managers (con dependencias circulares resueltas mediante inicialización posterior)
+  // Create managers (with circular dependencies resolved by later initialization)
   const sessionManager = createSessionManager(
     {
       saveSession: storage.saveSession,
@@ -63,7 +63,7 @@ export function createBrowserImplementation(): Orwel {
     },
     {
       push: (event: OrwelEvent) => queueManager.addEvent(event),
-      save: () => {},  // No es necesario guardar aquí, addEvent ya lo hace
+      save: () => {},  // Not necessary to save here, addEvent already does it
       findAndUpdateEvent: (type: string, data: Record<string, any>) => 
         queueManager.findAndUpdateEvent(type, data as OrwelEvent)
     },
@@ -84,7 +84,7 @@ export function createBrowserImplementation(): Orwel {
     logger
   );
 
-  // Actualizar las referencias en el queue manager para resolver las dependencias circulares
+  // Update references in the queue manager to resolve circular dependencies
   (queueManager as any).sessionManager = {
     setPendingUpdate: (isPending: boolean) => (sessionManager as any).setPendingUpdate(isPending),
     flushSessionBuffer: () => (sessionManager as any).flushSessionBuffer()
@@ -110,7 +110,7 @@ export function createBrowserImplementation(): Orwel {
       
       config = opts;
       
-      // Reinicializar logger con la configuración de depuración
+      // Reinitialize logger with the debug configuration
       logger = createLogger({ 
         debug: opts.debug || false, 
         verbose: opts.verbose || false 
@@ -122,15 +122,15 @@ export function createBrowserImplementation(): Orwel {
         autoEventDetection: opts.autoEventDetection
       });
       
-      // Inicializar en el orden correcto
+      // Initialize in the correct order
       queueManager.loadQueue();
       
-      // Cargamos y creamos la sesión
+      // Load and create the session
       const { session: sessionData, isNewSession } = sessionManager.loadSession();
       
       // Start visitor resolution and handle session after it completes
       visitorManager.resolveVisitor().then(() => {
-        // Ahora que el visitor está resuelto, podemos enviar la sesión si es nueva
+        // Now that the visitor is resolved, we can send the session if it's new
         if (isNewSession) {
           logger.debug("New session detected, sending session event with resolved visitor");
           
@@ -141,26 +141,23 @@ export function createBrowserImplementation(): Orwel {
             timestamp: new Date().toISOString()
           };
           
-          // Enviamos el evento directamente sin usar la cola
+          // Send session event directly without using the queue
           apiClient.send(sessionEvent)
             .then(success => {
               if (success) {
                 logger.success("Initial session event sent successfully with visitor data");
-                // Ahora podemos comenzar a procesar la cola normalmente
                 if (queueManager.getQueue().length > 0) {
                   logger.debug("Processing queued events after session creation");
                   queueManager.flush();
                 }
               } else {
-                logger.warning("Initial session event failed, will retry with queue");
-                queueManager.addEvent(sessionEvent);
+                logger.warning("Initial session event failed, dropping without retry");
               }
             });
         }
       }).catch(error => {
         logger.error('Visitor resolution failed', error);
         
-        // Si falla la resolución del visitor, enviamos la sesión de todas formas
         if (isNewSession) {
           logger.debug("Sending session event despite visitor resolution failure");
           
@@ -372,5 +369,5 @@ export function createBrowserImplementation(): Orwel {
   return orwel;
 }
 
-// Crear una instancia para uso interno
+// Create an instance for internal use
 export const orwel: Orwel = createBrowserImplementation(); 

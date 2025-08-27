@@ -143,14 +143,7 @@ export function createQueueManager(
       
       logger.debug("Flushing event queue with batch processing", { count: queue.length });
       
-      // Check circuit breaker before processing
-      if (!checkCircuitBreaker()) {
-        logger.warning("Circuit breaker is open - skipping flush", {
-          failureCount,
-          queueSize: queue.length
-        });
-        return { success: false, count: 0 };
-      }
+      // No circuit breaker; always attempt to flush. Failed events will be dropped.
       
       // Create a copy of the current queue and clear the original
       const eventsToProcess = [...queue];
@@ -180,18 +173,9 @@ export function createQueueManager(
           
           return { success: true, count: sentCount };
         } else {
-          // Some or all events failed
-          failureCount++;
-          lastFailureTime = Date.now();
-          
-          // Put failed events back in queue
+          // Some or all events failed — drop failures, do not requeue
           const failedEvents = batchResult.failedEvents;
           const successfulCount = eventsToProcess.length - failedEvents.length;
-          
-          // Add failed events back to the beginning of the queue
-          queue.unshift(...failedEvents);
-          
-          // Handle successful session events
           if (successfulCount > 0) {
             const processedEvents = eventsToProcess.filter(evt => 
               !failedEvents.some(failed => failed === evt)
@@ -201,15 +185,12 @@ export function createQueueManager(
               sessionManager.setPendingUpdate(false);
             }
           }
-          
           saveQueue();
-          logger.warning("Batch flush partially failed", { 
+          logger.warning("Batch flush partially failed - dropped failed events", { 
             sent: successfulCount,
             failed: failedEvents.length,
-            remaining: queue.length,
-            circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+            remaining: queue.length
           });
-          
           return { success: successfulCount > 0, count: successfulCount };
         }
       } catch (error) {
@@ -237,30 +218,21 @@ export function createQueueManager(
           }
         }
         
-        // Handle results from fallback processing
-        if (failedEvents.length > 0) {
-          failureCount++;
-          lastFailureTime = Date.now();
-          queue.unshift(...failedEvents);
-        } else {
-          failureCount = 0; // Reset on complete success
-        }
+        // Handle results from fallback processing: drop failures unconditionally
         
         saveQueue();
         
         if (sentCount > 0) {
-          logger.success("Fallback flush completed", { 
+          logger.success("Fallback flush completed (dropped failures)", { 
             sent: sentCount,
             failed: failedEvents.length,
-            remaining: queue.length,
-            circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+            remaining: queue.length
           });
           return { success: true, count: sentCount };
         } else {
-          logger.error("Fallback flush failed completely", { 
-            eventsRestored: failedEvents.length,
-            remaining: queue.length,
-            circuitBreakerStatus: failureCount >= MAX_FAILURES ? 'open' : 'closed'
+          logger.error("Fallback flush failed completely - dropped all failed events", { 
+            eventsDropped: failedEvents.length,
+            remaining: queue.length
           });
           return { success: false, count: 0 };
         }
