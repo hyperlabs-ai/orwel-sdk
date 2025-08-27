@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Conversion Flush</title>
+</head>
+<body>
+    <h1>Test Conversion Flush</h1>
+    <button id="testBtn">Test Conversion</button>
+    
+    <script src="./dist/orwel.umd.js"></script>
+    <script>
+        // Initialize with debug enabled
+        orwel.init({
+            apiKey: 'orwel_test_key_12345',
+            debug: true,
+            verbose: true
+        });
+        
+        document.getElementById('testBtn').addEventListener('click', () => {
+            console.log('🚀 Testing conversion...');
+            
+            // Test conversion
+            const result = orwel.conversion('test_conversion', {
+                email: 'test@test.com',
+                source: 'test_page'
+            });
+            
+            console.log('Conversion result:', result);
+        });
+        
+        // Log all console messages to see what's happening
+        const originalLog = console.log;
+        const originalDebug = console.debug;
+        const originalError = console.error;
+        
+        console.log = (...args) => {
+            originalLog.apply(console, ['[LOG]', ...args]);
+        };
+        
+        console.debug = (...args) => {
+            originalLog.apply(console, ['[DEBUG]', ...args]);
+        };
+        
+        console.error = (...args) => {
+            originalLog.apply(console, ['[ERROR]', ...args]);
+        };
+    </script>
+</body>
+</html>

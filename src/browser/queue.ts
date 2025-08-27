@@ -113,19 +113,22 @@ export function createQueueManager(
 
   // Vaciar (flush) y enviar todos los eventos en la cola usando batch
   const flush = async () => {
+    logger.info("FLUSH CALLED - Starting flush operation");
+    
     // Prevent concurrent flush operations
     if (isFlushInProgress) {
-      logger.debug("Flush already in progress, skipping duplicate flush");
+      logger.info("FLUSH BLOCKED - Flush already in progress, skipping duplicate flush");
       return { success: true, count: 0 };
     }
     
+    logger.info("FLUSH PROCEEDING - Setting flush in progress");
     isFlushInProgress = true;
     
     try {
       sessionManager.flushSessionBuffer();
       
       if (queue.length === 0) {
-        logger.debug("Queue is empty, nothing to flush");
+        logger.debug("FLUSH EARLY EXIT - Queue is empty, nothing to flush");
         return { success: true, count: 0 };
       }
       
@@ -254,6 +257,7 @@ export function createQueueManager(
         }
       }
     } finally {
+      logger.debug("FLUSH FINALLY - Resetting flush in progress flag");
       isFlushInProgress = false;
     }
   };

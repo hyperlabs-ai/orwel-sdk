@@ -149,10 +149,11 @@ export function createVisitorManager(
       queue.save();
       
       // Flush immediately for conversions - they are critical events
-      queue.flush().then(() => {
-        logger.success('Conversion sent', { code });
+      logger.info('About to flush queue for conversion', { code });
+      queue.flush().then((result) => {
+        logger.success('Conversion flush completed', { code, result });
       }).catch((error) => {
-        logger.error('Failed to send conversion', { code, error });
+        logger.error('Failed to flush conversion', { code, error });
       });
       
       logger.success('Conversion created', { code });
