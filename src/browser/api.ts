@@ -20,6 +20,7 @@ export function createApiClient(
         visitor: getVisitor(),
         session: getSession(),
         timestamp: new Date().toISOString(),
+        eventId: crypto.randomUUID(),
       };
 
       logger.debug("Sending event to server", { type: event.type });
@@ -140,7 +141,8 @@ export function createApiClient(
           ...event,
           visitor,
           session,
-          timestamp
+          timestamp,
+          eventId: crypto.randomUUID()
         })),
         batchId: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         count: events.length
