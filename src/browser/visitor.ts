@@ -13,6 +13,7 @@ export function createVisitorManager(
   queue: {
     push: (event: any) => void;
     save: () => void;
+    flush: () => Promise<{ success: boolean; count: number }>;
   },
   apiClient: {
     send: (event: any) => Promise<boolean>;
@@ -134,12 +135,10 @@ export function createVisitorManager(
     }
   };
 
-  // Crear conversion con código y properties
   const conversion = (code: string, properties: Record<string, any> = {}) => {
     logger.info('Creating conversion', { code, properties });
     
     try {
-      // Always queue the conversion event with code
       queue.push({ 
         type: 'conversion',
         code,
@@ -148,6 +147,8 @@ export function createVisitorManager(
         timestamp: new Date().toISOString()
       });
       queue.save();
+      
+      queue.flush();
       
       logger.success('Conversion created', { code });
       return { success: true };
