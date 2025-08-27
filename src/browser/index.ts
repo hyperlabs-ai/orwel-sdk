@@ -78,7 +78,7 @@ export function createBrowserImplementation(): Orwel {
     {
       push: (event: OrwelEvent) => queueManager.addEvent(event),
       save: () => {},
-      flush: () => queueManager.flush()
+      flush: (force?: boolean) => queueManager.flush(force)
     },
     apiClient,
     logger

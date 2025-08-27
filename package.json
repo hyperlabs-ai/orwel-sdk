@@ -1,6 +1,6 @@
 {
   "name": "orwel",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "changelog": "CHANGELOG.md",
   "description": "Human-behavior event tracking SDK",
   "main": "./dist/orwel.umd.js",

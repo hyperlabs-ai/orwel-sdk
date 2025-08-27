@@ -15,12 +15,14 @@ export function createApiClient(
   // Enviar un evento al servidor con timeout
   const send = async (event: OrwelEvent): Promise<boolean> => {
     try {
+      const originalTimestamp = (event as any)?.timestamp;
+      const originalEventId = (event as any)?.event?.id || (event as any)?.eventId || (event as any)?.id;
       const payload = {
         ...event,
         visitor: getVisitor(),
         session: getSession(),
-        timestamp: new Date().toISOString(),
-        eventId: crypto.randomUUID(),
+        timestamp: originalTimestamp || new Date().toISOString(),
+        eventId: originalEventId || crypto.randomUUID(),
       };
 
       logger.debug("Sending event to server", { type: event.type });
@@ -137,13 +139,17 @@ export function createApiClient(
       const timestamp = new Date().toISOString();
       
       const batchPayload = {
-        events: events.map(event => ({
-          ...event,
-          visitor,
-          session,
-          timestamp,
-          eventId: crypto.randomUUID()
-        })),
+        events: events.map(event => {
+          const originalTimestamp = (event as any)?.timestamp;
+          const originalEventId = (event as any)?.event?.id || (event as any)?.eventId || (event as any)?.id;
+          return {
+            ...event,
+            visitor,
+            session,
+            timestamp: originalTimestamp || timestamp,
+            eventId: originalEventId || crypto.randomUUID()
+          };
+        }),
         batchId: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         count: events.length
       };

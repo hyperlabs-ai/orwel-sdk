@@ -111,14 +111,23 @@ export function createQueueManager(
     }
   };
 
-  // Vaciar (flush) y enviar todos los eventos en la cola usando batch
-  const flush = async () => {
+  // Flush queue
+  const flush = async (force: boolean = false) => {
     logger.info("FLUSH CALLED - Starting flush operation");
     
-    // Prevent concurrent flush operations
-    if (isFlushInProgress) {
+    // Prevent concurrent flush operations (unless forced)
+    if (isFlushInProgress && !force) {
       logger.info("FLUSH BLOCKED - Flush already in progress, skipping duplicate flush");
       return { success: true, count: 0 };
+    }
+    
+    // If forced, wait briefly for current flush to finish
+    if (isFlushInProgress && force) {
+      let attempts = 0;
+      while (isFlushInProgress && attempts < 100) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        attempts++;
+      }
     }
     
     logger.info("FLUSH PROCEEDING - Setting flush in progress");

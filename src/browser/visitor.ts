@@ -13,7 +13,7 @@ export function createVisitorManager(
   queue: {
     push: (event: any) => void;
     save: () => void;
-    flush: () => Promise<{ success: boolean; count: number }>;
+    flush: (force?: boolean) => Promise<{ success: boolean; count: number }>;
   },
   apiClient: {
     send: (event: any) => Promise<boolean>;
@@ -150,7 +150,7 @@ export function createVisitorManager(
       
       // Flush immediately for conversions - they are critical events
       logger.info('About to flush queue for conversion', { code });
-      queue.flush().then((result) => {
+      queue.flush(true).then((result) => {
         logger.success('Conversion flush completed', { code, result });
       }).catch((error) => {
         logger.error('Failed to flush conversion', { code, error });
