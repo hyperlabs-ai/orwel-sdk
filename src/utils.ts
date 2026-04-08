@@ -402,17 +402,78 @@ export const validateEmailIfPresent = (properties: Record<string, any>): void =>
   }
 };
 
+const UTM_STORAGE_KEY = '__orwel_utm';
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+
+/**
+ * Extract UTM parameters from the current URL.
+ * Checks window.location.search, hash-based query strings, and document.referrer.
+ * Persists UTMs in sessionStorage so they survive SPA navigations, redirects,
+ * and frameworks that strip query params before SDK init.
+ * Returns null if no UTMs are found anywhere.
+ */
+export const extractUTMs = (): Record<string, string> | null => {
+  if (!isBrowser) return null;
+
+  try {
+    // 1. Try current URL search params
+    let utms = parseUTMsFromSearch(window.location.search);
+
+    // 2. Try hash-based routing (e.g., /#/page?utm_source=...)
+    if (!utms && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.split('?')[1];
+      if (hashQuery) utms = parseUTMsFromSearch('?' + hashQuery);
+    }
+
+    // 3. Try referrer (covers redirects that stripped params)
+    if (!utms && document.referrer) {
+      try {
+        const refUrl = new URL(document.referrer);
+        utms = parseUTMsFromSearch(refUrl.search);
+      } catch (_) {}
+    }
+
+    // 4. If found now, persist to sessionStorage
+    if (utms) {
+      try { sessionStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utms)); } catch (_) {}
+      return utms;
+    }
+
+    // 5. Fall back to previously persisted UTMs (SPA navigation lost them)
+    try {
+      const stored = sessionStorage.getItem(UTM_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+};
+
+function parseUTMsFromSearch(search: string): Record<string, string> | null {
+  try {
+    const params = new URLSearchParams(search);
+    const utms: Record<string, string> = {};
+    UTM_KEYS.forEach(key => {
+      const val = params.get(key);
+      if (val) utms[key] = val;
+    });
+    return Object.keys(utms).length > 0 ? utms : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 export const createBrowserFingerprint = (): Record<string, any> => {
   if (!isBrowser) return {};
-  
+
+  // Only stable fields — screenWidth/Height/devicePixelRatio change with zoom/resize
   return {
     userAgent: navigator.userAgent,
     language: navigator.language,
     platform: navigator.platform,
-    screenWidth: screen.width,
-    screenHeight: screen.height,
     screenColorDepth: screen.colorDepth,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    devicePixelRatio: window.devicePixelRatio
   };
 }; 

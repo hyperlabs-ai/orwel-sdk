@@ -140,6 +140,8 @@ export interface Session {
   jsErrors?: Array<Record<string, any>>;
   memory?: Record<string, any>;
   networkRequests?: Array<Record<string, any>>;
+  utm?: Record<string, string>;
+  timezone?: string;
   customProperties?: Record<string, any>;
   sectionEngagements?: SectionEngagement[];
 }

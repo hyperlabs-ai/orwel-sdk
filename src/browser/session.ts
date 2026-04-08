@@ -1,5 +1,5 @@
 import { debounce } from "../utils";
-import { generateUUID, createLogger, sanitizeData } from "../utils";
+import { generateUUID, createLogger, sanitizeData, extractUTMs } from "../utils";
 import { Session } from "../types";
 
 /**
@@ -74,6 +74,20 @@ export function createSessionManager(
         search: window.location.search,
         hostname: window.location.hostname
       };
+    }
+
+    // Capture client timezone for temporal personality analysis
+    try {
+      session.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (_) {}
+
+    // Extract UTM parameters for new sessions
+    if (isNewSessionInstance) {
+      const utms = extractUTMs();
+      if (utms) {
+        session.utm = utms;
+        logger.info("UTM parameters captured", utms);
+      }
     }
 
     saveSession();
