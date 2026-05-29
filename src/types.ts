@@ -120,7 +120,35 @@ export interface Orwel {
    * ```
    */
   form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean; error?: string };
+
+  /**
+   * Assign the current visitor to an A/B experiment variant (sticky) and auto-fire
+   * the exposure event (`optimize_experiment_impression`). Assignment is
+   * deterministic from the visitor id, so the same visitor always gets the same
+   * variant. Experiments are auto-discovered in Orwel from these exposures.
+   * @example
+   * ```typescript
+   * // value form (returns the value to render):
+   * const cta = orwel.experiment('hero_cta', { control: 'Start free', green: 'Create account' });
+   * // key form (for branching):
+   * const v = orwel.experiment('layout', ['a', 'b']);
+   * // weighted:
+   * const p = orwel.experiment('price', [{ key: 'a', weight: 70 }, { key: 'b', weight: 30 }]);
+   * ```
+   */
+  experiment: (key: string, variants: ExperimentVariants) => string;
 }
+
+/**
+ * Ways to declare an experiment's variants:
+ *  - `['control', 'green']` — equal split, returns the variant key
+ *  - `[{ key: 'a', weight: 70 }, { key: 'b', weight: 30 }]` — weighted, returns the key
+ *  - `{ control: 'Start free', green: 'Create account' }` — equal split, returns the value
+ */
+export type ExperimentVariants =
+  | string[]
+  | Array<{ key: string; weight?: number }>
+  | Record<string, string>;
 
 export interface Session {
   id: string;

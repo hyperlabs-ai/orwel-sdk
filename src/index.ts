@@ -1,4 +1,4 @@
-import { Orwel, Config, MonitorOptions } from './types';
+import { Orwel, Config, MonitorOptions, ExperimentVariants } from './types';
 import { isBrowser } from './utils';
 import { createBrowserImplementation } from './browser';
 import { createServerImplementation } from './server';
@@ -16,7 +16,7 @@ if (isBrowser) {
 }
 
 // Export public types for consumers
-export type { Orwel, Config, MonitorOptions };
+export type { Orwel, Config, MonitorOptions, ExperimentVariants };
 
 // Export the orwel singleton
 export { orwel };
