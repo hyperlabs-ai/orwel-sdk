@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [1.5.0] - 2026-05-26
+
+### Added
+- **A/B Experiments**: new `orwel.experiment(key, variants)` API. Assigns the
+  visitor to a variant deterministically from their visitor id (sticky — same
+  visitor always gets the same variant) and auto-fires the
+  `optimize_experiment_impression` exposure event once per page lifecycle.
+  - Three ways to declare variants: `['a','b']` (equal split, returns the key),
+    `[{ key:'a', weight:70 }, { key:'b', weight:30 }]` (weighted, returns the key),
+    or `{ control: 'A', green: 'B' }` (equal split, returns the value).
+  - Experiments are auto-discovered in Orwel from the exposure events — no
+    pre-registration needed.
+
 # [1.3.4] - 2025-07-08
 
 ### Hotfixes

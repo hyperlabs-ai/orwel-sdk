@@ -1,4 +1,4 @@
-import { Orwel, Config, OrwelEvent, FormOptions } from "../types";
+import { Orwel, Config, OrwelEvent, FormOptions, ExperimentVariants } from "../types";
 import { 
   createLogger, 
   generateUUID, 
@@ -19,6 +19,30 @@ import { createFormTracker } from "./form";
 import { createAutoEventDetection } from "../auto-detection";
 import { SDK_VERSION } from "../constants";
 
+/** Deterministic 32-bit FNV-1a hash → float in [0, 1). Used for sticky variant assignment. */
+function hashToUnit(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+/** Pick a variant key from the variants spec given a deterministic unit value u in [0, 1). */
+function pickExperimentVariant(variants: ExperimentVariants, keys: string[], u: number): string {
+  const weighted = Array.isArray(variants)
+    ? variants.map((v) => (typeof v === "string" ? { key: v, weight: 1 } : { key: v.key, weight: v.weight ?? 1 }))
+    : keys.map((k) => ({ key: k, weight: 1 }));
+  const total = weighted.reduce((sum, v) => sum + v.weight, 0) || 1;
+  let r = u * total;
+  for (const v of weighted) {
+    r -= v.weight;
+    if (r < 0) return v.key;
+  }
+  return weighted[weighted.length - 1].key;
+}
+
 /**
  * Creates a browser implementation of the Orwel SDK
  */
@@ -29,6 +53,8 @@ export function createBrowserImplementation(): Orwel {
   let beforeUnloadExecuted = false;
   let logger = createLogger({ debug: false, verbose: false });
   let autoDetection: ReturnType<typeof createAutoEventDetection> | null = null;
+  // Experiments already exposed in this page lifecycle (dedupe exposure firing).
+  const exposedExperiments = new Set<string>();
 
   // Create the storage manager
   const storage = createStorage(logger);
@@ -362,6 +388,30 @@ export function createBrowserImplementation(): Orwel {
         const errorMessage = error instanceof Error ? error.message : 'Unknown form error';
         logger.error("Invalid parameters for form tracking", { error: errorMessage });
         return { success: false, error: errorMessage };
+      }
+    },
+
+    experiment: (key: string, variants: ExperimentVariants): string => {
+      const valueMap = Array.isArray(variants) ? null : variants;
+      const keys = Array.isArray(variants)
+        ? variants.map((v) => (typeof v === "string" ? v : v.key))
+        : Object.keys(variants);
+      const valueFor = (k: string): string => (valueMap ? valueMap[k] ?? "" : k);
+      try {
+        if (keys.length === 0) return valueFor("");
+        const visitor = visitorManager.getVisitor();
+        const seed = visitor && visitor.id ? String(visitor.id) : "anon";
+        const variant = pickExperimentVariant(variants, keys, hashToUnit(`${seed}:${key}`));
+        // Fire the exposure once per page lifecycle (distinct-visitor counting handles repeats).
+        if (!exposedExperiments.has(key)) {
+          exposedExperiments.add(key);
+          orwel.track("optimize_experiment_impression", { experiment: key, variant });
+        }
+        logger.debug("Experiment assigned", { key, variant });
+        return valueFor(variant);
+      } catch (error) {
+        logger.error("experiment() failed, returning first variant", { error });
+        return valueFor(keys[0] ?? "");
       }
     }
   };
