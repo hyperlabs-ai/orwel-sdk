@@ -1,5 +1,5 @@
 import { debounce } from "../utils";
-import { generateUUID, createLogger, sanitizeData, extractUTMs } from "../utils";
+import { generateUUID, createLogger, sanitizeData, extractUTMs, getAttribution } from "../utils";
 import { Session } from "../types";
 
 /**
@@ -89,6 +89,10 @@ export function createSessionManager(
         logger.info("UTM parameters captured", utms);
       }
     }
+
+    // Record first/last-touch attribution on every load so first_touch persists
+    // across sessions even when the converting session has no UTMs.
+    getAttribution();
 
     saveSession();
     

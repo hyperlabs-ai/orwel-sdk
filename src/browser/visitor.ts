@@ -1,6 +1,9 @@
 import { Visitor } from '../types';
-import { generateUUID, collectBrowserInfo, createLogger, createBrowserFingerprint } from '../utils';
+import { generateUUID, collectBrowserInfo, createLogger, createBrowserFingerprint, getAttribution } from '../utils';
 import { SDK_VERSION } from '../constants';
+
+// Max time conversion() will wait for visitor-id resolution before giving up.
+const VISITOR_RESOLUTION_TIMEOUT = 5000;
 
 /**
  * Creates a visitor manager that handles visitor identification and persistence
@@ -24,8 +27,20 @@ export function createVisitorManager(
   // Current visitor state
   let visitor: Visitor = {};
 
-  // Auto-resolve visitor ID (called during init)
-  const resolveVisitor = async () => {
+  // In-flight visitor-id resolution. Memoized so init() and conversion() share
+  // the same resolution instead of racing two of them.
+  let resolutionPromise: Promise<void> | null = null;
+
+  // Auto-resolve visitor ID (called during init). Memoized: repeated calls return
+  // the same in-flight promise.
+  const resolveVisitor = (): Promise<void> => {
+    if (!resolutionPromise) {
+      resolutionPromise = doResolveVisitor();
+    }
+    return resolutionPromise;
+  };
+
+  const doResolveVisitor = async () => {
     try {
       visitor = storage.loadVisitor();
 
@@ -135,32 +150,73 @@ export function createVisitorManager(
     }
   };
 
-  const conversion = (code: string, properties: Record<string, any> = {}) => {
-    logger.info('Creating conversion', { code, properties });
-    
+  // Wait until the visitor id is resolved (server or local fallback). Returns
+  // true once `visitor.id` exists, false if resolution doesn't finish in time.
+  const ensureVisitorResolved = async (timeoutMs: number = VISITOR_RESOLUTION_TIMEOUT): Promise<boolean> => {
+    if (visitor.id) return true;
+
+    // Kick off resolution if init hasn't already (memoized, so this is safe).
+    const resolved = resolveVisitor();
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+    });
+
     try {
-      queue.push({ 
+      await Promise.race([resolved, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+
+    return !!visitor.id;
+  };
+
+  const conversion = async (
+    code: string,
+    properties: Record<string, any> = {}
+  ): Promise<{ success: boolean; reason?: string }> => {
+    logger.info('Creating conversion', { code, properties });
+
+    try {
+      // Gate on visitor-id resolution. A conversion sent before the visitor id
+      // resolves arrives at the server with no resolvable destinatario and never
+      // attaches to a visitor — the lead silently disappears. Wait for it first.
+      const resolved = await ensureVisitorResolved();
+      if (!resolved || !visitor.id) {
+        logger.error('Conversion aborted: visitor id not resolved', { code });
+        return { success: false, reason: 'visitor_unresolved' };
+      }
+
+      const attribution = getAttribution();
+
+      queue.push({
         type: 'conversion',
         code,
         properties,
         source: `orwel-sdk-v${SDK_VERSION}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        // Stable id so server-side retries of the same conversion are idempotent.
+        conversionId: generateUUID(),
+        ...(attribution ? { attribution } : {})
       });
       queue.save();
-      
-      // Flush immediately for conversions - they are critical events
+
+      // Flush immediately and report the *real* outcome — no more false success.
       logger.info('About to flush queue for conversion', { code });
-      queue.flush(true).then((result) => {
-        logger.success('Conversion flush completed', { code, result });
-      }).catch((error) => {
-        logger.error('Failed to flush conversion', { code, error });
-      });
-      
-      logger.success('Conversion created', { code });
-      return { success: true };
+      const result = await queue.flush(true);
+      const success = result.success && result.count > 0;
+
+      if (success) {
+        logger.success('Conversion sent and acknowledged', { code, result });
+        return { success: true };
+      }
+
+      logger.error('Conversion flush did not acknowledge delivery', { code, result });
+      return { success: false, reason: 'delivery_failed' };
     } catch (error) {
       logger.error('Failed to create conversion', error);
-      return { success: false };
+      return { success: false, reason: 'error' };
     }
   };
 
@@ -168,6 +224,7 @@ export function createVisitorManager(
     loadVisitor,
     saveVisitor,
     resolveVisitor,
+    isResolved: () => !!visitor.id,
     identify,
     conversion,
     getVisitor: () => visitor

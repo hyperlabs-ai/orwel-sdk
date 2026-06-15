@@ -19,9 +19,7 @@ export const EVENT_CATALOG: OrwelEventDefinition[] = [
 
   // Conversion events
   { id: '5be64ef7-55dc-4b71-88ea-9f2b39e6b37d', code: 'milestone_reached', category: 'conversion', description: 'User reached a specific milestone', severity: 1 },
-  { id: '776fc864-e375-4006-9af4-f46ac8233ddf', code: 'optimize_personalization_impression', category: 'conversion', description: 'User received a personalized experience', severity: 1 },
   { id: '7d290342-3215-40b0-b39f-d874cef1fedf', code: 'conversion_custom', category: 'conversion', description: 'Custom conversion event occurred', severity: 1 },
-  { id: '3aa27f3a-235f-4fce-af54-8c45df63d5f3', code: 'optimize_experiment_impression', category: 'conversion', description: 'User was exposed to an A/B test', severity: 1 },
   { id: '77b7c641-73df-4f2f-a2c1-22f6f50567c6', code: 'select_promotion', category: 'conversion', description: 'User selected a promotion', severity: 1 },
   { id: 'c67780c5-2799-4eec-9f48-c6caaa641f0c', code: 'view_promotion', category: 'conversion', description: 'User viewed a promotion', severity: 1 },
   { id: '65ac0f7a-4d8f-41b5-b847-f1977ff52b83', code: 'share', category: 'conversion', description: 'User shared content externally', severity: 1 },

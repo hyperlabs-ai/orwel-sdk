@@ -451,6 +451,53 @@ export const extractUTMs = (): Record<string, string> | null => {
   }
 };
 
+const ATTRIBUTION_STORAGE_KEY = '__orwel_attribution';
+
+export interface Attribution {
+  first_touch?: Record<string, string>;
+  last_touch?: Record<string, string>;
+}
+
+/**
+ * First/last-touch UTM attribution, persisted in localStorage so it survives
+ * across sessions (sessionStorage UTMs clear between sessions).
+ *
+ * - `first_touch` is written once (the campaign that first acquired the visitor).
+ * - `last_touch` is overwritten every time new UTMs are seen.
+ *
+ * Calling this also records the current UTMs (from `extractUTMs()`), so invoking
+ * it at session start keeps `first_touch` even if the visitor converts later in a
+ * UTM-less session. Returns null when no attribution is known.
+ */
+export const getAttribution = (): Attribution | null => {
+  if (!isBrowser) return null;
+
+  try {
+    let stored: Attribution = {};
+    try {
+      const raw = localStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') stored = parsed;
+      }
+    } catch (_) {}
+
+    const utms = extractUTMs();
+    if (utms) {
+      if (!stored.first_touch) stored.first_touch = utms; // write-once
+      stored.last_touch = utms; // overwrite on every new touch
+      try {
+        localStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(stored));
+      } catch (_) {}
+    }
+
+    if (!stored.first_touch && !stored.last_touch) return null;
+    return stored;
+  } catch (_) {
+    return null;
+  }
+};
+
 function parseUTMsFromSearch(search: string): Record<string, string> | null {
   try {
     const params = new URLSearchParams(search);
