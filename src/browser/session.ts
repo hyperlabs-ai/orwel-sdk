@@ -1,5 +1,5 @@
 import { debounce } from "../utils";
-import { generateUUID, createLogger, sanitizeData, extractUTMs, getAttribution } from "../utils";
+import { generateUUID, createLogger, sanitizeData, extractUTMs, getAttribution, getBotSignals } from "../utils";
 import { Session } from "../types";
 
 /**
@@ -80,6 +80,11 @@ export function createSessionManager(
     try {
       session.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch (_) {}
+
+    // Flag automated/bot sessions so the server can filter them out.
+    const bot = getBotSignals();
+    session.isBot = bot.isBot;
+    if (bot.isBot) session.botReasons = bot.reasons;
 
     // Extract UTM parameters for new sessions
     if (isNewSessionInstance) {

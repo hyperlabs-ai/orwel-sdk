@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     should `await` it.
 
 ### Added
+- **Bot flagging.** Best-effort client-side bot/automation detection
+  (`navigator.webdriver`, headless/crawler user-agents, empty `navigator.languages`).
+  Detected clients are still tracked but flagged with `isBot` (+ `botReasons`) on the
+  session and visitor traits so the server can filter them out — tracking is never blocked.
 - **First/last-touch attribution.** Conversions now carry a persisted
   `attribution` object (`first_touch` written once, `last_touch` updated on every
   new UTM touch), surviving across sessions. The server uses it for lead source

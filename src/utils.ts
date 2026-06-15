@@ -194,10 +194,15 @@ export const collectBrowserInfo = (): Record<string, any> => {
   try {
     info.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch (_) {}
-  
+
+  // Bot / automation flag — tracked, not blocked; the server decides to filter.
+  const bot = getBotSignals();
+  info.isBot = bot.isBot;
+  if (bot.isBot) info.botReasons = bot.reasons;
+
   // Session information
   info.sessionStart = Date.now();
-  
+
   return info;
 };
 
@@ -511,6 +516,39 @@ function parseUTMsFromSearch(search: string): Record<string, string> | null {
     return null;
   }
 }
+
+// Conservative bot/automation signatures. Kept tight to avoid false positives —
+// we only FLAG (is_bot) and let the server decide; we never block tracking.
+const BOT_UA_RE =
+  /bot\b|crawl|spider|slurp|mediapartners|headless|puppeteer|playwright|lighthouse|phantomjs|selenium|googlebot|bingbot|yandex|baiduspider|duckduckbot|facebookexternalhit|ia_archiver|chrome-lighthouse|gtmetrix|pingdom|uptimerobot/i;
+
+/**
+ * Best-effort client-side bot detection. Returns whether the current client
+ * looks automated and the signals that triggered it. Client-side detection is
+ * easily spoofed, so this is a hint for the server (which should also filter by
+ * UA/IP), not a hard gate.
+ */
+export const getBotSignals = (): { isBot: boolean; reasons: string[] } => {
+  if (!isBrowser) return { isBot: false, reasons: [] };
+
+  const reasons: string[] = [];
+  try {
+    if ((navigator as any).webdriver === true) reasons.push('webdriver');
+
+    const ua = navigator.userAgent || '';
+    if (!ua) reasons.push('empty_ua');
+    else if (BOT_UA_RE.test(ua)) reasons.push('ua');
+
+    // Headless Chrome historically exposes no plugins and no languages.
+    if (Array.isArray(navigator.languages) && navigator.languages.length === 0) {
+      reasons.push('no_languages');
+    }
+  } catch (_) {}
+
+  return { isBot: reasons.length > 0, reasons };
+};
+
+export const isLikelyBot = (): boolean => getBotSignals().isBot;
 
 export const createBrowserFingerprint = (): Record<string, any> => {
   if (!isBrowser) return {};

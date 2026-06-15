@@ -149,6 +149,10 @@ export interface Session {
   networkRequests?: Array<Record<string, any>>;
   utm?: Record<string, string>;
   timezone?: string;
+  /** True when the client looks automated (see getBotSignals). Server filters. */
+  isBot?: boolean;
+  /** Which bot signals fired (e.g. 'webdriver', 'ua'). Only set when isBot. */
+  botReasons?: string[];
   customProperties?: Record<string, any>;
   sectionEngagements?: SectionEngagement[];
 }
