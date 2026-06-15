@@ -1,5 +1,5 @@
 import { debounce } from "../utils";
-import { generateUUID, createLogger, sanitizeData, extractUTMs } from "../utils";
+import { generateUUID, createLogger, sanitizeData, extractUTMs, getAttribution, getBotSignals } from "../utils";
 import { Session } from "../types";
 
 /**
@@ -81,6 +81,11 @@ export function createSessionManager(
       session.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch (_) {}
 
+    // Flag automated/bot sessions so the server can filter them out.
+    const bot = getBotSignals();
+    session.isBot = bot.isBot;
+    if (bot.isBot) session.botReasons = bot.reasons;
+
     // Extract UTM parameters for new sessions
     if (isNewSessionInstance) {
       const utms = extractUTMs();
@@ -89,6 +94,10 @@ export function createSessionManager(
         logger.info("UTM parameters captured", utms);
       }
     }
+
+    // Record first/last-touch attribution on every load so first_touch persists
+    // across sessions even when the converting session has no UTMs.
+    getAttribution();
 
     saveSession();
     

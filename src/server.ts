@@ -1,4 +1,4 @@
-import { Orwel, Config, FormOptions, ExperimentVariants } from './types';
+import { Orwel, Config, FormOptions } from './types';
 import { createLogger } from './utils';
 import { SDK_VERSION } from './constants';
 
@@ -21,7 +21,7 @@ export function createServerImplementation(): Orwel {
     return { success: true, sessionId: '' };
   };
   
-  const noopConversion = () => {
+  const noopConversion = async () => {
     logger.debug('Conversion called (no-op in server environment)');
     return { success: true };
   };
@@ -61,15 +61,6 @@ export function createServerImplementation(): Orwel {
       return { success: true };
     },
     flush: noopAsync,
-    form: noopForm,
-    experiment: (key: string, variants: ExperimentVariants): string => {
-      logger.debug('Experiment called (no-op in server environment)', { key });
-      const valueMap = Array.isArray(variants) ? null : variants;
-      const keys = Array.isArray(variants)
-        ? variants.map((v) => (typeof v === 'string' ? v : v.key))
-        : Object.keys(variants);
-      const first = keys[0] ?? '';
-      return valueMap ? (valueMap[first] ?? '') : first;
-    }
+    form: noopForm
   };
 } 

@@ -32,20 +32,27 @@ export interface Orwel {
   identify: (traits?: Record<string, any>) => { success: boolean; visitorId: string };
 
   /**
-   * Track a conversion event such as signups, purchases, or form submissions
+   * Track a conversion event such as signups, purchases, or form submissions.
+   *
+   * Returns a Promise that resolves with the *real* outcome: the SDK first waits
+   * for the visitor id to be resolved (so the conversion can be attached to a
+   * visitor), then sends and awaits the server acknowledgement. If the visitor
+   * id never resolves, `success` is `false` with `reason: 'visitor_unresolved'`
+   * — the conversion is NOT sent, avoiding an unattributable "lead with no
+   * destinatario". Callers that ignore the return value keep working unchanged.
    * @param code - Event code identifying the type of conversion (e.g., 'newsletter_signup', 'purchase')
    * @param properties - Optional object containing conversion-specific data
-   * @returns Object with success status
+   * @returns Promise resolving to an object with success status (and a reason when it failed)
    * @example
    * ```typescript
-   * orwel.conversion('newsletter_signup', {
+   * const { success } = await orwel.conversion('newsletter_signup', {
    *   email: 'user@example.com',
    *   source: 'homepage_banner',
    *   campaign: 'summer_sale'
    * });
    * ```
    */
-  conversion: (code: string, properties?: Record<string, any>) => { success: boolean };
+  conversion: (code: string, properties?: Record<string, any>) => Promise<{ success: boolean; reason?: string }>;
 
   /**
    * Track a custom event with optional properties
@@ -120,35 +127,7 @@ export interface Orwel {
    * ```
    */
   form: (formElement: HTMLFormElement, options?: FormOptions) => { success: boolean; error?: string };
-
-  /**
-   * Assign the current visitor to an A/B experiment variant (sticky) and auto-fire
-   * the exposure event (`optimize_experiment_impression`). Assignment is
-   * deterministic from the visitor id, so the same visitor always gets the same
-   * variant. Experiments are auto-discovered in Orwel from these exposures.
-   * @example
-   * ```typescript
-   * // value form (returns the value to render):
-   * const cta = orwel.experiment('hero_cta', { control: 'Start free', green: 'Create account' });
-   * // key form (for branching):
-   * const v = orwel.experiment('layout', ['a', 'b']);
-   * // weighted:
-   * const p = orwel.experiment('price', [{ key: 'a', weight: 70 }, { key: 'b', weight: 30 }]);
-   * ```
-   */
-  experiment: (key: string, variants: ExperimentVariants) => string;
 }
-
-/**
- * Ways to declare an experiment's variants:
- *  - `['control', 'green']` — equal split, returns the variant key
- *  - `[{ key: 'a', weight: 70 }, { key: 'b', weight: 30 }]` — weighted, returns the key
- *  - `{ control: 'Start free', green: 'Create account' }` — equal split, returns the value
- */
-export type ExperimentVariants =
-  | string[]
-  | Array<{ key: string; weight?: number }>
-  | Record<string, string>;
 
 export interface Session {
   id: string;
@@ -170,6 +149,10 @@ export interface Session {
   networkRequests?: Array<Record<string, any>>;
   utm?: Record<string, string>;
   timezone?: string;
+  /** True when the client looks automated (see getBotSignals). Server filters. */
+  isBot?: boolean;
+  /** Which bot signals fired (e.g. 'webdriver', 'ua'). Only set when isBot. */
+  botReasons?: string[];
   customProperties?: Record<string, any>;
   sectionEngagements?: SectionEngagement[];
 }

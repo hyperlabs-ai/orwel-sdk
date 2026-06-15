@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [1.6.0] - 2026-06-15
+
+### Changed
+- **`conversion()` is now async and reports the real outcome.** It returns a
+  `Promise<{ success: boolean; reason?: string }>` that resolves only after the
+  server acknowledges delivery. The previous synchronous `{ success: true }`
+  could be a *false success* — a conversion fired before the visitor id resolved
+  arrived at the server unattributable and the lead silently disappeared.
+  - The SDK now **waits for the visitor id to resolve** before sending a
+    conversion. If it can't resolve in time, the conversion is not sent and the
+    result is `{ success: false, reason: 'visitor_unresolved' }`.
+  - Callers that ignore the return value are unaffected; callers that read it
+    should `await` it.
+
+### Added
+- **Bot flagging.** Best-effort client-side bot/automation detection
+  (`navigator.webdriver`, headless/crawler user-agents, empty `navigator.languages`).
+  Detected clients are still tracked but flagged with `isBot` (+ `botReasons`) on the
+  session and visitor traits so the server can filter them out — tracking is never blocked.
+- **First/last-touch attribution.** Conversions now carry a persisted
+  `attribution` object (`first_touch` written once, `last_touch` updated on every
+  new UTM touch), surviving across sessions. The server uses it for lead source
+  and falls back to session UTMs for older SDKs.
+- **Client `conversionId`.** Each conversion includes a stable UUID so server-side
+  retries of the same conversion are idempotent.
+
+### Removed
+- **A/B Experiments.** The `orwel.experiment()` API and the
+  `optimize_experiment_impression` / `optimize_personalization_impression` catalog
+  entries have been removed.
+
 # [1.5.0] - 2026-05-26
 
 ### Added
