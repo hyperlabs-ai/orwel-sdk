@@ -408,7 +408,11 @@ export const validateEmailIfPresent = (properties: Record<string, any>): void =>
 };
 
 const UTM_STORAGE_KEY = '__orwel_utm';
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+// `utm_id` carries the ad platform's own campaign id (Meta supports
+// `utm_id={{campaign.id}}`, Google `utm_id={campaignid}`). It's the only UTM that
+// survives a campaign rename, so the server prefers it over `utm_campaign` when
+// joining a lead to synced ad spend.
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id'];
 
 /**
  * Extract UTM parameters from the current URL.
@@ -456,11 +460,64 @@ export const extractUTMs = (): Record<string, string> | null => {
   }
 };
 
+const CLICK_ID_STORAGE_KEY = '__orwel_click_ids';
+// Per-click identifiers appended by ad platforms on outbound clicks. `gclid`
+// (+ its iOS/web variants gbraid/wbraid) is the join key against synced Google Ads
+// cost; `fbclid` can't be joined to Meta cost (Meta exposes no click_view
+// equivalent) but still proves the visit came from a Meta ad when UTMs are absent.
+const CLICK_ID_KEYS = ['gclid', 'gbraid', 'wbraid', 'fbclid', 'ttclid', 'msclkid', 'li_fat_id'];
+
+/**
+ * Extract ad-click identifiers from the current URL. Mirrors `extractUTMs()`:
+ * current search params → hash-based query → referrer, persisted in sessionStorage
+ * so they survive SPA navigations and frameworks that strip query params before
+ * SDK init. Returns null when no click ids are present anywhere.
+ */
+export const extractClickIds = (): Record<string, string> | null => {
+  if (!isBrowser) return null;
+
+  try {
+    // 1. Current URL search params
+    let ids = parseKeysFromSearch(window.location.search, CLICK_ID_KEYS);
+
+    // 2. Hash-based routing (e.g. /#/page?gclid=…)
+    if (!ids && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.split('?')[1];
+      if (hashQuery) ids = parseKeysFromSearch('?' + hashQuery, CLICK_ID_KEYS);
+    }
+
+    // 3. Referrer (covers redirects that stripped the params)
+    if (!ids && document.referrer) {
+      try {
+        const refUrl = new URL(document.referrer);
+        ids = parseKeysFromSearch(refUrl.search, CLICK_ID_KEYS);
+      } catch (_) {}
+    }
+
+    if (ids) {
+      try { sessionStorage.setItem(CLICK_ID_STORAGE_KEY, JSON.stringify(ids)); } catch (_) {}
+      return ids;
+    }
+
+    // 4. Fall back to previously persisted ids (SPA navigation lost them)
+    try {
+      const stored = sessionStorage.getItem(CLICK_ID_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+};
+
 const ATTRIBUTION_STORAGE_KEY = '__orwel_attribution';
 
 export interface Attribution {
   first_touch?: Record<string, string>;
   last_touch?: Record<string, string>;
+  first_click_ids?: Record<string, string>;
+  last_click_ids?: Record<string, string>;
 }
 
 /**
@@ -470,9 +527,14 @@ export interface Attribution {
  * - `first_touch` is written once (the campaign that first acquired the visitor).
  * - `last_touch` is overwritten every time new UTMs are seen.
  *
- * Calling this also records the current UTMs (from `extractUTMs()`), so invoking
- * it at session start keeps `first_touch` even if the visitor converts later in a
- * UTM-less session. Returns null when no attribution is known.
+ * Ad-click identifiers (gclid/fbclid/…) follow the same write-once/overwrite rule
+ * in `first_click_ids` / `last_click_ids`. They're tracked separately from UTMs
+ * because a click id can arrive without any UTM and vice versa.
+ *
+ * Calling this also records the current UTMs (from `extractUTMs()`) and click ids
+ * (from `extractClickIds()`), so invoking it at session start keeps `first_touch`
+ * even if the visitor converts later in a UTM-less session. Returns null when no
+ * attribution is known.
  */
 export const getAttribution = (): Attribution | null => {
   if (!isBrowser) return null;
@@ -487,16 +549,31 @@ export const getAttribution = (): Attribution | null => {
       }
     } catch (_) {}
 
+    let dirty = false;
+
     const utms = extractUTMs();
     if (utms) {
       if (!stored.first_touch) stored.first_touch = utms; // write-once
       stored.last_touch = utms; // overwrite on every new touch
+      dirty = true;
+    }
+
+    const clickIds = extractClickIds();
+    if (clickIds) {
+      if (!stored.first_click_ids) stored.first_click_ids = clickIds; // write-once
+      stored.last_click_ids = clickIds; // overwrite on every new click
+      dirty = true;
+    }
+
+    if (dirty) {
       try {
         localStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(stored));
       } catch (_) {}
     }
 
-    if (!stored.first_touch && !stored.last_touch) return null;
+    if (!stored.first_touch && !stored.last_touch && !stored.first_click_ids && !stored.last_click_ids) {
+      return null;
+    }
     return stored;
   } catch (_) {
     return null;
@@ -504,14 +581,19 @@ export const getAttribution = (): Attribution | null => {
 };
 
 function parseUTMsFromSearch(search: string): Record<string, string> | null {
+  return parseKeysFromSearch(search, UTM_KEYS);
+}
+
+/** Pull a whitelist of query-string keys out of a search string. Null if none hit. */
+function parseKeysFromSearch(search: string, keys: string[]): Record<string, string> | null {
   try {
     const params = new URLSearchParams(search);
-    const utms: Record<string, string> = {};
-    UTM_KEYS.forEach(key => {
+    const out: Record<string, string> = {};
+    keys.forEach(key => {
       const val = params.get(key);
-      if (val) utms[key] = val;
+      if (val) out[key] = val;
     });
-    return Object.keys(utms).length > 0 ? utms : null;
+    return Object.keys(out).length > 0 ? out : null;
   } catch (_) {
     return null;
   }
