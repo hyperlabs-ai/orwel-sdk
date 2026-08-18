@@ -51,12 +51,24 @@ export function createApiClient(
       const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
       
       if (!response.ok) {
-        // Si es error 400, es un problema con el formato y no debemos reintentar
+        // Si es error 400, es un problema con el formato y no debemos reintentar.
+        // Igual que en sendBatch: este path reporta exito para no reencolar, asi
+        // que el evento se pierde sin rastro. El cuerpo de la respuesta es lo
+        // unico que dice si fue un codigo fuera del catalogo del workspace
+        // ("Event not found: <code>"), asi que se loguea antes de descartarlo.
         if (response.status === 400) {
-          logger.error("Bad request error (format issue) - not retrying", { 
-            type: event.type, 
+          let detail = "";
+          try {
+            detail = (await response.text()).slice(0, 500);
+          } catch {
+            /* body already consumed or unreadable — the log below still fires */
+          }
+          logger.error("Event rejected (400) - DISCARDED, not retrying", {
+            type: event.type,
+            code: (event as any)?.code,
             status: response.status,
-            statusText: response.statusText
+            statusText: response.statusText,
+            serverResponse: detail
           });
           return true; // Evita reinsertar en la cola
         }
@@ -206,10 +218,24 @@ export function createApiClient(
         
         // For 400 errors, don't retry any events
         if (response.status === 400) {
-          logger.error("Batch bad request error (format issue) - not retrying", { 
+          // Surface WHY. A 400 here is almost always an event code that is not in
+          // the workspace's catalog ("Event not found: <code>"), and because this
+          // path reports success to avoid a retry loop, the event just disappeared
+          // — no client-side error, no server-side row. Whole blocks of product
+          // instrumentation stayed dark for months that way. The body is the only
+          // place that says which code was rejected, so read it before discarding.
+          let detail = "";
+          try {
+            detail = (await response.text()).slice(0, 500);
+          } catch {
+            /* body already consumed or unreadable — the log below still fires */
+          }
+          logger.error("Batch rejected (400) - events DISCARDED, not retrying", {
             count: events.length,
             status: response.status,
-            statusText: response.statusText
+            statusText: response.statusText,
+            codes: events.map(e => (e as any)?.code).filter(Boolean),
+            serverResponse: detail
           });
           return { success: true, failedEvents: [] }; // Treat as success to avoid retry
         }

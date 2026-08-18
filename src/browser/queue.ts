@@ -1,5 +1,6 @@
 import { OrwelEvent } from "../types";
 import { createLogger } from "../utils";
+import { MAX_BATCH_SIZE } from "../constants";
 
 const MAX_FAILURES = 3;
 const RESET_TIMEOUT = 60000; // 1 minute
@@ -111,6 +112,60 @@ export function createQueueManager(
     }
   };
 
+  /**
+   * Send one batch-sized chunk, falling back to individual sends if the batch
+   * endpoint itself is unreachable. Reports what happened rather than mutating
+   * session state, so flush() can settle the session flag once at the end.
+   */
+  const sendChunk = async (
+    chunk: OrwelEvent[]
+  ): Promise<{ sent: number; failed: number; sessionSent: boolean }> => {
+    try {
+      const batchResult = await api.sendBatch(chunk);
+
+      if (batchResult.success) {
+        return {
+          sent: chunk.length,
+          failed: 0,
+          sessionSent: chunk.some(evt => evt.type === "session")
+        };
+      }
+
+      // Some or all events failed — drop failures, do not requeue
+      const failedEvents = batchResult.failedEvents;
+      const delivered = chunk.filter(evt => !failedEvents.some(failed => failed === evt));
+      return {
+        sent: delivered.length,
+        failed: failedEvents.length,
+        sessionSent: delivered.some(evt => evt.type === "session")
+      };
+    } catch (error) {
+      // Batch endpoint might not be available - try fallback to individual sends
+      logger.warning("Batch processing failed, falling back to individual sends", { error });
+
+      let sent = 0;
+      let failed = 0;
+      let sessionSent = false;
+
+      for (const evt of chunk) {
+        try {
+          const result = await api.send(evt);
+          if (result) {
+            sent++;
+            if (evt.type === "session") sessionSent = true;
+          } else {
+            failed++;
+          }
+        } catch (individualError) {
+          logger.debug("Individual event send failed", { type: evt.type, error: individualError });
+          failed++;
+        }
+      }
+
+      return { sent, failed, sessionSent };
+    }
+  };
+
   // Flush queue
   const flush = async (force: boolean = false) => {
     logger.info("FLUSH CALLED - Starting flush operation");
@@ -149,94 +204,56 @@ export function createQueueManager(
       const eventsToProcess = [...queue];
       queue.length = 0;
 
-      try {
-        // Try to send all events in a single batch first
-        const batchResult = await api.sendBatch(eventsToProcess);
-        
-        if (batchResult.success) {
-          // All events sent successfully
-          const sentCount = eventsToProcess.length;
-          failureCount = 0; // Reset failure count on success
-          
-          // Handle session events
-          const sessionEvents = eventsToProcess.filter(evt => evt.type === "session");
-          if (sessionEvents.length > 0) {
-            sessionManager.setPendingUpdate(false);
-          }
-          
-          saveQueue(); // Save empty queue
-          logger.success("Batch flush completed successfully", { 
-            sent: sentCount,
-            remaining: queue.length,
-            circuitBreakerStatus: 'closed'
-          });
-          
-          return { success: true, count: sentCount };
-        } else {
-          // Some or all events failed — drop failures, do not requeue
-          const failedEvents = batchResult.failedEvents;
-          const successfulCount = eventsToProcess.length - failedEvents.length;
-          if (successfulCount > 0) {
-            const processedEvents = eventsToProcess.filter(evt => 
-              !failedEvents.some(failed => failed === evt)
-            );
-            const sessionEvents = processedEvents.filter(evt => evt.type === "session");
-            if (sessionEvents.length > 0) {
-              sessionManager.setPendingUpdate(false);
-            }
-          }
-          saveQueue();
-          logger.warning("Batch flush partially failed - dropped failed events", { 
-            sent: successfulCount,
-            failed: failedEvents.length,
-            remaining: queue.length
-          });
-          return { success: successfulCount > 0, count: successfulCount };
-        }
-      } catch (error) {
-        // Batch endpoint might not be available - try fallback to individual sends
-        logger.warning("Batch processing failed, falling back to individual sends", { error });
-        
-        let sentCount = 0;
-        const failedEvents: OrwelEvent[] = [];
-        
-        // Process events individually as fallback
-        for (const evt of eventsToProcess) {
-          try {
-            const result = await api.send(evt);
-            if (result) {
-              sentCount++;
-              if (evt.type === "session") {
-                sessionManager.setPendingUpdate(false);
-              }
-            } else {
-              failedEvents.push(evt);
-            }
-          } catch (individualError) {
-            logger.debug("Individual event send failed", { type: evt.type, error: individualError });
-            failedEvents.push(evt);
-          }
-        }
-        
-        // Handle results from fallback processing: drop failures unconditionally
-        
-        saveQueue();
-        
-        if (sentCount > 0) {
-          logger.success("Fallback flush completed (dropped failures)", { 
-            sent: sentCount,
-            failed: failedEvents.length,
-            remaining: queue.length
-          });
-          return { success: true, count: sentCount };
-        } else {
-          logger.error("Fallback flush failed completely - dropped all failed events", { 
-            eventsDropped: failedEvents.length,
-            remaining: queue.length
-          });
-          return { success: false, count: 0 };
-        }
+      // Split into batches the server will actually accept. The queue holds up to
+      // MAX_QUEUE_SIZE (1000) events but /ingest/batch caps a payload at
+      // MAX_BATCH_SIZE and answers 400 above it — and sendBatch() reports a 400 as
+      // "success, don't retry", so posting the whole queue at once discarded every
+      // event in it without a trace. Any flush past MAX_BATCH_SIZE used to be total
+      // silent data loss.
+      const chunks: OrwelEvent[][] = [];
+      for (let i = 0; i < eventsToProcess.length; i += MAX_BATCH_SIZE) {
+        chunks.push(eventsToProcess.slice(i, i + MAX_BATCH_SIZE));
       }
+
+      let totalSent = 0;
+      let totalFailed = 0;
+      let sessionAcknowledged = false;
+
+      for (const chunk of chunks) {
+        const result = await sendChunk(chunk);
+        totalSent += result.sent;
+        totalFailed += result.failed;
+        sessionAcknowledged = sessionAcknowledged || result.sessionSent;
+      }
+
+      // Only clear the pending-session flag once, after every chunk is done:
+      // the session event lives at index 0, so it is in the first chunk, but
+      // clearing mid-loop would mark it settled while later chunks can still fail.
+      if (sessionAcknowledged) {
+        sessionManager.setPendingUpdate(false);
+      }
+      if (totalFailed === 0) {
+        failureCount = 0; // Reset failure count on a fully clean flush
+      }
+
+      saveQueue(); // Save empty queue
+
+      if (totalFailed > 0) {
+        logger.warning("Flush completed with drops", {
+          sent: totalSent,
+          failed: totalFailed,
+          batches: chunks.length,
+          remaining: queue.length
+        });
+      } else {
+        logger.success("Flush completed successfully", {
+          sent: totalSent,
+          batches: chunks.length,
+          remaining: queue.length
+        });
+      }
+
+      return { success: totalSent > 0, count: totalSent };
     } finally {
       logger.debug("FLUSH FINALLY - Resetting flush in progress flag");
       isFlushInProgress = false;
