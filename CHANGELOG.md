@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [1.7.0] - 2026-08-03
+
+### Added
+- **Ad-click identifiers.** The persisted `attribution` object now carries
+  `first_click_ids` / `last_click_ids` alongside `first_touch` / `last_touch`,
+  capturing `gclid`, `gbraid`, `wbraid`, `fbclid`, `ttclid`, `msclkid` and
+  `li_fat_id`. Same resolution order as UTMs (search params → hash query →
+  referrer, persisted in `sessionStorage`) and the same write-once/overwrite rule.
+  This is what closes the loop between a lead and the ad spend that produced it:
+  the API already expected these fields, so until now `leads.gclid` was never
+  populated from the SDK and Google Ads click-level attribution never ran.
+- **`utm_id` is now captured.** Ad platforms can emit their own campaign id into
+  it (`utm_id={{campaign.id}}` on Meta, `utm_id={campaignid}` on Google). Unlike
+  `utm_campaign` it survives a campaign rename, so the server prefers it when
+  joining a lead to synced campaign spend.
+- **`extractClickIds()`** exported from the SDK utils, mirroring `extractUTMs()`.
+
+### Notes
+- `fbclid` is captured but **cannot** be joined against Meta spend — Meta exposes
+  no queryable click endpoint (no `click_view` equivalent). Its use is proving a
+  visit came from a Meta ad when UTMs are missing, segmenting leads, and enabling
+  the Conversions API later. Lead↔cost joins on Meta stay UTM-based.
+- No breaking changes. Callers that ignore `attribution` are unaffected.
+
 # [1.6.0] - 2026-06-15
 
 ### Changed
