@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [1.7.1] - 2026-08-18
+
+### Fixed
+- **Flushes larger than 100 events are no longer lost.** The queue holds up to
+  1000 events, but `flush()` used to post all of them in a single
+  `/ingest/batch` request. The server caps a batch at 100 events and answers
+  400 above that, and a 400 is never retried, so every event in an oversized
+  flush was discarded without a trace. `flush()` now splits the queue into
+  chunks of `MAX_BATCH_SIZE` (100) and sends them one after another. The
+  session "pending update" flag is settled once, after every chunk, so a later
+  chunk failing can't mark the session as delivered early.
+- **Rejected events are no longer dropped silently.** A 400 from `/ingest` or
+  `/ingest/batch` is still not retried (retrying a malformed or unknown event
+  would loop forever), but the SDK now reads the response body and logs it
+  together with the rejected event codes before discarding them:
+  `Event rejected (400) - DISCARDED, not retrying` (single send) and
+  `Batch rejected (400) - events DISCARDED, not retrying` (batch). The most
+  common cause is an event code that is not in the workspace catalog
+  (`Event not found: <code>`).
+
+### Changed
+- Internal: the batch-then-individual fallback now runs per chunk
+  (`sendChunk()`), and the flush log reports `sent`, `failed` and `batches`.
+- New exported constant `MAX_BATCH_SIZE` in `src/constants.ts`; it must stay at
+  or below the server's batch limit.
+
+### Notes
+- A partially accepted batch (HTTP 207) still counts as delivered on the
+  client. The events the server refused are listed in the response body
+  (`failedEvents`); to see why each one failed, send traffic with the
+  workspace's development key and open Dev mode in the dashboard.
+- No API changes. Ships together with 1.7.0 (ad click IDs) in the
+  "meta ads parity" merge.
+
 # [1.7.0] - 2026-08-03
 
 ### Added
