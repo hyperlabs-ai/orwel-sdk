@@ -38,7 +38,7 @@ import orwel from 'orwel' // or: import { orwel } from 'orwel'
 
 orwel.init({
   apiKey: import.meta.env.VITE_ORWEL_KEY, // read it from env, never hardcode it
-  autoMonitor: true,                       // JS errors, console errors, failed requests, timings
+  autoMonitor: true,                       // JS errors, console errors, network requests, timings
   debug: import.meta.env.DEV               // SDK logs in the browser console
 })
 ```
