@@ -139,7 +139,16 @@ export function createApiClient(
   };
 
   // Enviar múltiples eventos en lotes al servidor
-  const sendBatch = async (events: OrwelEvent[]): Promise<{ success: boolean; failedEvents: OrwelEvent[] }> => {
+  // keepalive lets a request outlive the page, but Chromium caps the combined body
+  // of in-flight keepalive requests at ~64 KB: a telemetry batch still in flight
+  // made the next keepalive fetch (often a conversion) fail instantly and be
+  // dropped. Only callers that may race a page unload ask for it, and a keepalive
+  // failure that is not a timeout is retried once without it.
+  const sendBatch = async (
+    events: OrwelEvent[],
+    options: { keepalive?: boolean } = {}
+  ): Promise<{ success: boolean; failedEvents: OrwelEvent[] }> => {
+    const keepalive = options.keepalive === true;
     if (events.length === 0) {
       return { success: true, failedEvents: [] };
     }
@@ -182,7 +191,7 @@ export function createApiClient(
           "X-Orwel-Key": config.apiKey,
         },
         body: JSON.stringify(batchPayload),
-        keepalive: true,
+        keepalive,
       });
 
       // Create timeout promise with longer timeout for batches
@@ -252,11 +261,15 @@ export function createApiClient(
       
     } catch (err) {
       const isTimeout = err instanceof Error && err.message === 'Batch request timeout';
-      logger.error(`Failed to send batch: ${isTimeout ? 'timeout' : 'network error'}`, { 
+      if (keepalive && !isTimeout) {
+        logger.warning("Keepalive batch failed, retrying without keepalive", { count: events.length, error: err });
+        return sendBatch(events, { keepalive: false });
+      }
+      logger.error(`Failed to send batch: ${isTimeout ? 'timeout' : 'network error'}`, {
         count: events.length,
-        error: err 
+        error: err
       });
-      
+
       return { success: false, failedEvents: events };
     }
   };

@@ -17,7 +17,7 @@ export function createQueueManager(
   },
   api: {
     send: (event: OrwelEvent) => Promise<boolean>;
-    sendBatch: (events: OrwelEvent[]) => Promise<{ success: boolean; failedEvents: OrwelEvent[] }>;
+    sendBatch: (events: OrwelEvent[], options?: { keepalive?: boolean }) => Promise<{ success: boolean; failedEvents: OrwelEvent[] }>;
   },
   sessionManager: {
     setPendingUpdate: (isPending: boolean) => void;
@@ -118,10 +118,11 @@ export function createQueueManager(
    * session state, so flush() can settle the session flag once at the end.
    */
   const sendChunk = async (
-    chunk: OrwelEvent[]
+    chunk: OrwelEvent[],
+    keepalive: boolean
   ): Promise<{ sent: number; failed: number; sessionSent: boolean }> => {
     try {
-      const batchResult = await api.sendBatch(chunk);
+      const batchResult = await api.sendBatch(chunk, { keepalive });
 
       if (batchResult.success) {
         return {
@@ -167,7 +168,7 @@ export function createQueueManager(
   };
 
   // Flush queue
-  const flush = async (force: boolean = false) => {
+  const flush = async (force: boolean = false, keepalive: boolean = false) => {
     logger.info("FLUSH CALLED - Starting flush operation");
     
     // Prevent concurrent flush operations (unless forced)
@@ -220,7 +221,7 @@ export function createQueueManager(
       let sessionAcknowledged = false;
 
       for (const chunk of chunks) {
-        const result = await sendChunk(chunk);
+        const result = await sendChunk(chunk, keepalive);
         totalSent += result.sent;
         totalFailed += result.failed;
         sessionAcknowledged = sessionAcknowledged || result.sessionSent;

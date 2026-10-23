@@ -20,6 +20,7 @@ export function createVisitorManager(
   },
   apiClient: {
     send: (event: any) => Promise<boolean>;
+    sendBatch: (events: any[], options?: { keepalive?: boolean }) => Promise<{ success: boolean; failedEvents: any[] }>;
     resolveVisitor: (fingerprint: Record<string, any>) => Promise<string | null>;
   },
   logger: ReturnType<typeof createLogger>
@@ -190,7 +191,7 @@ export function createVisitorManager(
 
       const attribution = getAttribution();
 
-      queue.push({
+      const conversionEvent = {
         type: 'conversion',
         code,
         properties,
@@ -199,13 +200,15 @@ export function createVisitorManager(
         // Stable id so server-side retries of the same conversion are idempotent.
         conversionId: generateUUID(),
         ...(attribution ? { attribution } : {})
-      });
-      queue.save();
+      };
 
-      // Flush immediately and report the *real* outcome — no more false success.
-      logger.info('About to flush queue for conversion', { code });
-      const result = await queue.flush(true);
-      const success = result.success && result.count > 0;
+      // Send the conversion in its own batch. Going through the queue bundled it
+      // with all pending telemetry (each event carries a copy of the session,
+      // ~40 KB per flush); ingest then took longer than the batch timeout and the
+      // conversion resolved delivery_failed even though the server stored it.
+      logger.info('Sending conversion in its own batch', { code });
+      const result = await apiClient.sendBatch([conversionEvent], { keepalive: true });
+      const success = result.success && result.failedEvents.length === 0;
 
       if (success) {
         logger.success('Conversion sent and acknowledged', { code, result });
