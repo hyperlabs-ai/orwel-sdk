@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a copy of the session, ~40 KB), ingest took longer than the 10 s batch timeout
   and the promise resolved `delivery_failed`. The conversion is now sent alone in
   its own batch (~5 KB, acknowledged in a few seconds); telemetry flushes apart.
+- **Concurrent keepalive requests were dropped.** Every batch used
+  `fetch(..., { keepalive: true })`, and Chromium caps the combined body of
+  in-flight keepalive requests at ~64 KB. A large telemetry batch still in flight
+  made the next keepalive fetch (often a conversion) fail instantly and its events
+  were discarded. Regular flushes no longer use keepalive; only the unload flush,
+  the tab-hidden flush and `conversion()` do, and a keepalive failure that is not
+  a timeout is retried once without it.
 
 # [1.7.1] - 2026-08-18
 

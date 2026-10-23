@@ -192,7 +192,7 @@ export function createBrowserImplementation(): Orwel {
         const pendingEvents = queueManager.getQueueAndClear();
         if (pendingEvents.length > 0) {
           for (let i = 0; i < pendingEvents.length; i += MAX_BATCH_SIZE) {
-            void apiClient.sendBatch(pendingEvents.slice(i, i + MAX_BATCH_SIZE));
+            void apiClient.sendBatch(pendingEvents.slice(i, i + MAX_BATCH_SIZE), { keepalive: true });
           }
           logger.debug("Pending events flushed with keepalive on beforeunload", { count: pendingEvents.length });
         }
@@ -201,7 +201,7 @@ export function createBrowserImplementation(): Orwel {
       window.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden" && !beforeUnloadExecuted) {
           logger.debug("Page visibility changed to hidden, flushing queue");
-          orwel.flush();
+          queueManager.flush(false, true);
         }
       });
       

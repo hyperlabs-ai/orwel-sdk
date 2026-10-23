@@ -20,7 +20,7 @@ export function createVisitorManager(
   },
   apiClient: {
     send: (event: any) => Promise<boolean>;
-    sendBatch: (events: any[]) => Promise<{ success: boolean; failedEvents: any[] }>;
+    sendBatch: (events: any[], options?: { keepalive?: boolean }) => Promise<{ success: boolean; failedEvents: any[] }>;
     resolveVisitor: (fingerprint: Record<string, any>) => Promise<string | null>;
   },
   logger: ReturnType<typeof createLogger>
@@ -207,7 +207,7 @@ export function createVisitorManager(
       // ~40 KB per flush); ingest then took longer than the batch timeout and the
       // conversion resolved delivery_failed even though the server stored it.
       logger.info('Sending conversion in its own batch', { code });
-      const result = await apiClient.sendBatch([conversionEvent]);
+      const result = await apiClient.sendBatch([conversionEvent], { keepalive: true });
       const success = result.success && result.failedEvents.length === 0;
 
       if (success) {
