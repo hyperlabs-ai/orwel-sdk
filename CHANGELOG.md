@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no key), so sessions never closed and events queued at the end of a visit were
   lost. In production only ~1% of sessions had `finished_at`. The flush now uses
   the regular batch request (`fetch` with `keepalive`) in chunks of 100.
+- **`conversion()` reported `delivery_failed` for leads that were stored.** The
+  conversion was flushed together with all pending telemetry (each event carries
+  a copy of the session, ~40 KB), ingest took longer than the 10 s batch timeout
+  and the promise resolved `delivery_failed`. The conversion is now sent alone in
+  its own batch (~5 KB, acknowledged in a few seconds); telemetry flushes apart.
 
 # [1.7.1] - 2026-08-18
 
