@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [1.7.2] - 2026-10-23
+
+### Fixed
+- **Unload flush was always rejected.** On `beforeunload` the SDK posted the
+  pending queue (including the closing session update) with `navigator.sendBeacon`
+  to `/ingest`: a raw array, as `text/plain` and without the `X-Orwel-Key` header
+  (a beacon cannot set headers). The API rejected it (403 cross-site form POST /
+  no key), so sessions never closed and events queued at the end of a visit were
+  lost. In production only ~1% of sessions had `finished_at`. The flush now uses
+  the regular batch request (`fetch` with `keepalive`) in chunks of 100.
+
+# [1.7.1] - 2026-08-18
+
+### Fixed
+- Flush is split into chunks of 100 events (the server batch limit); bigger
+  flushes were rejected whole and lost.
+- Rejected events (HTTP 400) are logged with the server response before being
+  discarded.
+
 # [1.7.0] - 2026-08-03
 
 ### Added

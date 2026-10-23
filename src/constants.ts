@@ -2,7 +2,7 @@
  * Orwel SDK version
  * This is used for tracking and debugging purposes
  */
-export const SDK_VERSION = '1.7.1';
+export const SDK_VERSION = '1.7.2';
 
 /**
  * Hard cap on how many events go in one /ingest/batch request.

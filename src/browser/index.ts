@@ -17,7 +17,7 @@ import { createApiClient } from "./api";
 import { createQueueManager } from "./queue";
 import { createFormTracker } from "./form";
 import { createAutoEventDetection } from "../auto-detection";
-import { SDK_VERSION } from "../constants";
+import { SDK_VERSION, MAX_BATCH_SIZE } from "../constants";
 
 /**
  * Creates a browser implementation of the Orwel SDK
@@ -185,34 +185,16 @@ export function createBrowserImplementation(): Orwel {
           sectionEngagements: sectionEngagements
         }, true);
         
+        // sendBeacon cannot carry the X-Orwel-Key header and posts text/plain, so
+        // the API rejected every unload flush (403 CSRF / no key) and the closing
+        // session update was always lost. fetch with keepalive survives the unload
+        // and goes through the same batch endpoint and payload as a normal flush.
         const pendingEvents = queueManager.getQueueAndClear();
         if (pendingEvents.length > 0) {
-          const hardcodedApiUrl = "https://api.orwel.io/ingest";
-          
-          if (navigator.sendBeacon) {
-            try {
-              navigator.sendBeacon(hardcodedApiUrl, JSON.stringify(pendingEvents));
-              logger.debug("Events sent via sendBeacon on beforeunload");
-            } catch (e) {
-              logger.error("Error using sendBeacon", { error: e });
-            }
-          } else {
-            logger.debug("sendBeacon not available, using sync XHR for beforeunload flush");
-            try {
-              const xhr = new XMLHttpRequest();
-              xhr.open("POST", hardcodedApiUrl, false); 
-              xhr.setRequestHeader("Content-Type", "application/json");
-              if (config && config.apiKey) {
-                xhr.setRequestHeader("X-Orwel-Key", config.apiKey);
-              } else {
-                logger.warning("Cannot send X-Orwel-Key header for sync XHR: apiKey or config missing");
-              }
-              xhr.send(JSON.stringify(pendingEvents));
-              logger.debug("Events sent via sync XHR on beforeunload");
-            } catch (e) {
-              logger.error("Error using sync XHR for beforeunload flush", { error: e });
-            }
+          for (let i = 0; i < pendingEvents.length; i += MAX_BATCH_SIZE) {
+            void apiClient.sendBatch(pendingEvents.slice(i, i + MAX_BATCH_SIZE));
           }
+          logger.debug("Pending events flushed with keepalive on beforeunload", { count: pendingEvents.length });
         }
       });
       
